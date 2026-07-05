@@ -396,10 +396,16 @@ h1 {
 
 .row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: baseline;
   font-size: clamp(1.05rem, 4.4vw, 1.45rem);
   line-height: 1.3;
+}
+
+/* 右群(天地盤干)恆靠右,換行後亦然 */
+.row > :last-child {
+  margin-left: auto;
+  text-align: right;
 }
 
 .god-row {
@@ -428,7 +434,20 @@ h1 {
 
 .stems {
   display: inline-flex;
-  gap: 3px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0 3px;
+}
+
+/* 干與其上標不拆行 */
+.stem {
+  white-space: nowrap;
+}
+
+.star,
+.door,
+.god {
+  white-space: nowrap;
 }
 
 .stem .cs,
@@ -535,34 +554,32 @@ h1 {
   background: var(--muted);
 }
 
-.palace-name {
-  position: absolute;
-  bottom: 5px;
-  right: 8px;
-  font-size: 0.68rem;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-}
-
-/* 暗干、隱干:左下角疊列 */
-.corner-layers {
-  position: absolute;
-  bottom: 5px;
-  left: 8px;
+/* 格底一行:暗干、隱干居左,宮名居右,入流不壓正文 */
+.cell-foot {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  font-size: 0.72rem;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.7rem;
   letter-spacing: 0.05em;
   line-height: 1.2;
+  min-width: 0;
+}
+
+.palace-name {
+  margin-left: auto;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
 }
 
 .angan {
   color: var(--gold);
+  white-space: nowrap;
 }
 
 .yingan {
   color: var(--accent2);
+  white-space: nowrap;
 }
 
 /* 門帶干:門旁小字 */
@@ -675,6 +692,20 @@ h1 {
   gap: 5px;
 }
 
+.aliases {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.aliases::before {
+  content: '(';
+}
+
+.aliases::after {
+  content: ')';
+}
+
 .chip {
   font-size: 0.66rem;
   border-radius: 3px;
@@ -725,6 +756,31 @@ footer {
 
   .board {
     border-radius: 10px;
+  }
+
+  /* 手機:格高隨內容,免方格擠壓剪裁 */
+  .palace {
+    aspect-ratio: auto;
+    min-height: 31vw;
+    padding: 6px 7px;
+    gap: 3px;
+  }
+
+  .row {
+    flex-wrap: wrap;
+    row-gap: 1px;
+  }
+
+  .stem .cs,
+  .str,
+  .rel,
+  .daigan {
+    font-size: max(0.6em, 11.5px);
+  }
+
+  .cell-foot {
+    font-size: 0.62rem;
+    gap: 5px;
   }
 
   .detail {
@@ -903,4 +959,41 @@ h1 {
 /* 詳解升起 */
 .detail {
   animation: cellIn 0.35s ease both;
+}
+
+/* 全局格:中宮名章 */
+.global-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.gbadge {
+  font-size: 0.68rem;
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.gbadge-吉 {
+  background: var(--good);
+}
+
+.gbadge-凶 {
+  background: var(--accent);
+}
+
+.gbadge-平 {
+  background: var(--muted);
+}
+
+.palace.center {
+  cursor: pointer;
+}
+
+/* 長生主態(支之陰陽同干者)著干色 */
+.cs .cs-hit {
+  font-weight: 700;
 }

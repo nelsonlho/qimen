@@ -11,6 +11,8 @@ import {
   sheng,
   starWangShuai,
 } from './wuxing'
+import { matchZeGe } from './zege'
+import { STEMS } from './ganzhi'
 import type { Chart, PalaceInfo } from './types'
 
 export interface DoorRelation {
@@ -22,6 +24,7 @@ export interface DoorRelation {
 
 export interface GeJu {
   name: string
+  aliases?: string[] // 異名
   luck: Luck
   note: string
   source: string // 何以成格,如「天盤戊+地盤丙」
@@ -107,6 +110,8 @@ export function analyzeChart(chart: Chart): ChartAnalysis {
       if (p.isZhiShi && p.skyStems.includes('丁')) {
         geju.push({ name: '玉女守門', luck: '吉', note: '丁奇臨值使之門,百事可為', source: '天盤丁+值使門' })
       }
+      // 擇日格:九遁、三詐五假、升殿、得使
+      geju.push(...matchZeGe(p))
     }
 
     return {
@@ -121,8 +126,13 @@ export function analyzeChart(chart: Chart): ChartAnalysis {
     }
   })
 
-  // 全局:天地盤伏吟/反吟
+  // 全局:五不遇時——時干剋日干(同陰陽),即時干為日干後六位
   const global: GeJu[] = []
+  const dayStemIdx = STEMS.indexOf(chart.pillars.day[0] as (typeof STEMS)[number])
+  const hourStemIdx = STEMS.indexOf(chart.pillars.hour[0] as (typeof STEMS)[number])
+  if (dayStemIdx >= 0 && hourStemIdx === (dayStemIdx + 6) % 10) {
+    global.push({ name: '五不遇時', luck: '凶', note: '時干剋日干,百事不宜', source: '時干剋日干' })
+  }
   const outer = chart.palaces.filter((p) => p.palace !== 5)
   const same = outer.every((p) => p.skyStems.join('') === p.earthStems.join(''))
   if (same) {

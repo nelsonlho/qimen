@@ -13,6 +13,7 @@ import { analyzeChart, doorPalaceRelation } from '../analysis'
 import { starWangShuai } from '../wuxing'
 import { KE_YING } from '../keying'
 import { PALACE_NUMBERS } from '../numbers'
+import { matchZeGe } from '../zege'
 import { dayNumber, getTerms } from '../solarTerms'
 import { computeChart, earthPlate } from '../pan'
 
@@ -297,3 +298,46 @@ function jdnToDate(jdn: number): { year: number; month: number; day: number } {
   const d = new Date(jdn * 86400000)
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() }
 }
+
+describe('擇日格', () => {
+  it('五不遇時:庚辰日丙子時(時干剋日干)', () => {
+    const chart = computeChart({ year: 2026, month: 7, day: 5, hour: 0, minute: 30 })
+    expect(chart.pillars.day).toBe('庚辰')
+    expect(chart.pillars.hour).toBe('丙子')
+    const ana = analyzeChart(chart)
+    expect(ana.global.some((g) => g.name === '五不遇時')).toBe(true)
+  })
+})
+
+describe('擇日格判器', () => {
+  const base = {
+    palace: 1, name: '坎一', god: null as string | null, stars: ['天蓬'],
+    skyStems: ['戊'], door: '休門' as string | null, earthStems: ['戊'],
+    isZhiFu: false, isZhiShi: false, kong: false, horse: false,
+    anGan: '甲', yinGan: '戊', doorDaiGan: null as string | null,
+  }
+  it('人遁:休門+丁+太陰', () => {
+    const hits = matchZeGe({ ...base, skyStems: ['丁'], god: '太陰' })
+    expect(hits.map((h) => h.name)).toContain('人遁')
+    expect(hits.map((h) => h.name)).toContain('真詐') // 丁亦三奇,休門+太陰兼成真詐
+  })
+  it('地遁:開門+乙+地盤己', () => {
+    const hits = matchZeGe({ ...base, door: '開門', skyStems: ['乙'], earthStems: ['己'] })
+    expect(hits.map((h) => h.name)).toContain('地遁')
+  })
+  it('龍遁:吉門+乙落坎一', () => {
+    const hits = matchZeGe({ ...base, skyStems: ['乙'] })
+    expect(hits.map((h) => h.name)).toContain('龍遁')
+  })
+  it('三奇升殿:丙落離九;得使:丁臨壬', () => {
+    expect(
+      matchZeGe({ ...base, palace: 9, name: '離九', skyStems: ['丙'], door: '景門' }).map((h) => h.name),
+    ).toContain('三奇升殿')
+    expect(
+      matchZeGe({ ...base, skyStems: ['丁'], earthStems: ['壬'] }).map((h) => h.name),
+    ).toContain('三奇得使')
+  })
+  it('不中則無', () => {
+    expect(matchZeGe(base).filter((h) => h.name.includes('遁'))).toHaveLength(0)
+  })
+})

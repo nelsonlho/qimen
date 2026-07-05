@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
+  BRANCHES,
   BRANCH_ELEMENT,
   PALACE_NUMBERS,
+  STEMS,
   STEM_ELEMENT,
   analyzeChart,
   computeChart,
@@ -10,6 +12,7 @@ import {
 import type {
   Chart,
   ChartAnalysis,
+  GeJu,
   JuMethod,
   PalaceAnalysis,
   PalaceInfo,
@@ -29,7 +32,7 @@ const STAGE_SHORT: Record<string, string> = {
   沐浴: '浴',
   冠帶: '帶',
   臨官: '祿',
-  帝旺: '旺',
+  帝旺: '帝',
   衰: '衰',
   病: '病',
   死: '死',
@@ -58,7 +61,24 @@ function StemGroup({
         return (
           <span className={`stem e-${STEM_ELEMENT[s]}`} key={s}>
             {s}
-            {st && <i className="cs">{STAGE_SHORT[st.primary]}</i>}
+            {st && (
+              <i className="cs">
+                {/* 二支宮兩態並列,依宮支之序;支之陰陽與干同者,著干色為主態 */}
+                {st.perBranch.map((b, i) => {
+                  const sameYinYang =
+                    STEMS.indexOf(s as (typeof STEMS)[number]) % 2 ===
+                    BRANCHES.indexOf(b.branch as (typeof BRANCHES)[number]) % 2;
+                  return (
+                    <span
+                      key={i}
+                      className={sameYinYang ? `cs-hit e-${STEM_ELEMENT[s]}` : undefined}
+                    >
+                      {STAGE_SHORT[b.stage]}
+                    </span>
+                  );
+                })}
+              </i>
+            )}
           </span>
         );
       })}
@@ -76,6 +96,7 @@ function PalaceCell({
   showYinGan,
   showDaiGan,
   order,
+  globalGe,
 }: {
   info: PalaceInfo;
   chart: Chart;
@@ -86,18 +107,29 @@ function PalaceCell({
   showYinGan: boolean;
   showDaiGan: boolean;
   order: number;
+  globalGe: GeJu[];
 }) {
   const cellStyle = { '--i': order } as CSSProperties;
-  const cornerLayers = (
-    <div className="corner-layers">
+  // 格底一行:左為暗干隱干,右為宮名——入流佈局,不壓正文
+  const cellFoot = (
+    <div className="cell-foot">
       {showAnGan && <span className="angan">暗{info.anGan}</span>}
       {showYinGan && <span className="yingan">隱{info.yinGan}</span>}
+      <span className="palace-name">{info.name}</span>
     </div>
   );
   const watermark = <span className="trigram">{TRIGRAM[info.palace]}</span>;
   if (info.palace === 5) {
+    // 中宮統攝全局:全局之格列此,按之觀詳解
     return (
-      <div className="palace center" style={cellStyle}>
+      <div
+        className={`palace center${selected ? ' selected' : ''}`}
+        style={cellStyle}
+        onClick={onSelect}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onSelect()}
+      >
         {watermark}
         <div className="center-ju">
           {chart.ju.dun}遁{chart.ju.ju}局
@@ -110,8 +142,16 @@ function PalaceCell({
           <span className="earth-stem">{info.earthStems.join('')}</span>
           <span className="ji-note">寄坤二</span>
         </div>
-        {cornerLayers}
-        <div className="palace-name">{info.name}</div>
+        {globalGe.length > 0 && (
+          <div className="global-badges">
+            {globalGe.map((g, i) => (
+              <span className={`gbadge gbadge-${g.luck}`} key={i}>
+                {g.name}
+              </span>
+            ))}
+          </div>
+        )}
+        {cellFoot}
       </div>
     );
   }
@@ -169,8 +209,7 @@ function PalaceCell({
           <StemGroup stems={info.earthStems} stages={ana.earthStages} />
         </span>
       </div>
-      {cornerLayers}
-      <div className="palace-name">{info.name}</div>
+      {cellFoot}
     </div>
   );
 }
@@ -190,6 +229,54 @@ function DetailPanel({
 }) {
   const info = chart.palaces[palace - 1];
   const pa = ana.palaces[palace - 1];
+  if (palace === 5) {
+    // 中宮:全局之詳解
+    return (
+      <div className="detail">
+        <div className="detail-head">
+          <strong>中五宮・全局</strong>
+        </div>
+        <dl>
+          <div>
+            <dt>定局</dt>
+            <dd>
+              {chart.ju.termName}
+              {chart.ju.yuanName}・{chart.ju.dun}遁{chart.ju.ju}局({chart.ju.method}法
+              {chart.ju.method === '置閏' &&
+                `,${chart.ju.status}${chart.ju.status !== '正授' ? Math.abs(chart.ju.gapDays) + '日' : ''}`}
+              )
+            </dd>
+          </div>
+          <div>
+            <dt>地盤寄干</dt>
+            <dd>
+              {info.earthStems.join('')}
+              <span className="note">(寄坤二宮)</span>
+            </dd>
+          </div>
+          <div>
+            <dt>宮數</dt>
+            <dd>
+              {PALACE_NUMBERS[5].all.join('、')}
+              <span className="note">(五行土5/10,無先後天數)</span>
+            </dd>
+          </div>
+        </dl>
+        <div className="geju-list">
+          {ana.global.length === 0 && <div className="note">此時無全局之格</div>}
+          {ana.global.map((g, i) => (
+            <div className="geju" key={i}>
+              <strong>{g.name}</strong>
+              <LuckChip luck={g.luck} />
+              <span className="note">
+                {g.note}({g.source})
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   const stageText = (s: PalaceAnalysis['skyStages'][number]) =>
     s.perBranch.map((b) => `${b.branch}${b.stage}`).join('、');
   return (
@@ -277,6 +364,9 @@ function DetailPanel({
         {pa.geju.map((g, i) => (
           <div className="geju" key={i}>
             <strong>{g.name}</strong>
+            {g.aliases && g.aliases.length > 0 && (
+              <span className="aliases">又名{g.aliases.join('、')}</span>
+            )}
             <LuckChip luck={g.luck} />
             <span className="note">
               {g.note}({g.source})
@@ -300,15 +390,14 @@ export default function App() {
     if (q === 'light' || q === 'dark' || q === 'auto') return q;
     return (localStorage.getItem('qimen-theme') as Theme) ?? 'auto';
   });
-  const [showAnGan, setShowAnGan] = useState(
-    () => localStorage.getItem('qimen-angan') === '1',
-  );
-  const [showYinGan, setShowYinGan] = useState(
-    () => localStorage.getItem('qimen-yingan') === '1',
-  );
-  const [showDaiGan, setShowDaiGan] = useState(
-    () => localStorage.getItem('qimen-daigan') === '1',
-  );
+  const layerInit = (key: string) => () => {
+    const q = new URLSearchParams(location.search).get(key.replace('qimen-', ''));
+    if (q === '1' || q === '0') return q === '1';
+    return localStorage.getItem(key) === '1';
+  };
+  const [showAnGan, setShowAnGan] = useState(layerInit('qimen-angan'));
+  const [showYinGan, setShowYinGan] = useState(layerInit('qimen-yingan'));
+  const [showDaiGan, setShowDaiGan] = useState(layerInit('qimen-daigan'));
 
   useEffect(() => {
     const root = document.documentElement;
@@ -464,12 +553,6 @@ export default function App() {
             </span>
             <span>空亡 {chart.kongWang.join('')}</span>
             <span>馬星 {chart.horseBranch}</span>
-            {ana.global.map((g, i) => (
-              <span className="global-ge" key={i}>
-                {g.name}
-                <LuckChip luck={g.luck} />
-              </span>
-            ))}
           </div>
 
           <div
@@ -488,14 +571,17 @@ export default function App() {
                 showAnGan={showAnGan}
                 showYinGan={showYinGan}
                 showDaiGan={showDaiGan}
+                globalGe={ana.global}
               />
             ))}
           </div>
 
-          {selected && selected !== 5 ? (
+          {selected ? (
             <DetailPanel chart={chart} ana={ana} palace={selected} />
           ) : (
-            <div className="hint">點按任一宮,觀門宮生剋、長生、格局詳解</div>
+            <div className="hint">
+              點按任一宮,觀門宮生剋、長生、格局詳解;全局之格(五不遇時、伏反吟)列於中宮
+            </div>
           )}
 
           <footer>
