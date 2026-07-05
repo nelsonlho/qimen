@@ -34,8 +34,15 @@
 npm install
 npm run dev    # 開發伺服器
 npm test       # 測試
-npm run build  # 產出 dist/
+npm run build  # 產出 dist/(含 PWA:manifest + service worker)
 ```
+
+## 手機安裝(PWA)
+
+`npm run build` 後將 `dist/` 部署至任何 HTTPS 靜態主機(或區網試用:`npm run dev -- --host`)。
+手機瀏覽器開啟後:iOS Safari「分享 → 加入主畫面」;Android Chrome「安裝應用程式」。
+即有朱印圖標、全屏無瀏覽器框、離線可用(思源宋體亦入緩存)。
+日後欲上 App Store / Play Store,以 Capacitor 包殼即可,代碼不必改。
 
 ## 結構
 

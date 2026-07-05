@@ -12,6 +12,7 @@ import { stageOf, stagesInPalace } from '../changsheng'
 import { analyzeChart, doorPalaceRelation } from '../analysis'
 import { starWangShuai } from '../wuxing'
 import { KE_YING } from '../keying'
+import { PALACE_NUMBERS } from '../numbers'
 import { dayNumber, getTerms } from '../solarTerms'
 import { computeChart, earthPlate } from '../pan'
 
@@ -174,6 +175,20 @@ describe('斷析', () => {
     }
     expect(KE_YING['戊+丙'].name).toBe('青龍返首')
     expect(KE_YING['丙+戊'].name).toBe('飛鳥跌穴')
+  })
+})
+
+describe('九宮之數', () => {
+  it('先天後天五行併集,與刊表吻合', () => {
+    expect(PALACE_NUMBERS[1].all).toEqual([1, 6])
+    expect(PALACE_NUMBERS[2].all).toEqual([2, 5, 8, 10])
+    expect(PALACE_NUMBERS[3].all).toEqual([3, 4, 8])
+    expect(PALACE_NUMBERS[4].all).toEqual([3, 4, 5, 8])
+    expect(PALACE_NUMBERS[5].all).toEqual([5, 10])
+    expect(PALACE_NUMBERS[6].all).toEqual([1, 4, 6, 9])
+    expect(PALACE_NUMBERS[7].all).toEqual([2, 4, 7, 9])
+    expect(PALACE_NUMBERS[8].all).toEqual([5, 7, 8, 10])
+    expect(PALACE_NUMBERS[9].all).toEqual([2, 3, 7, 9])
   })
 })
 

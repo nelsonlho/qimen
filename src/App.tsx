@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   BRANCH_ELEMENT,
+  PALACE_NUMBERS,
   STEM_ELEMENT,
   analyzeChart,
   computeChart,
@@ -226,6 +227,20 @@ function DetailPanel({
                 <span className="note">{pa.doorRelation.note}</span>
               </>
             )}
+          </dd>
+        </div>
+        <div>
+          <dt>宮數</dt>
+          <dd>
+            {PALACE_NUMBERS[palace].all.join('、')}
+            <span className="note">
+              (
+              {PALACE_NUMBERS[palace].xianTian !== null &&
+                `先天${PALACE_NUMBERS[palace].xianTian}・`}
+              {PALACE_NUMBERS[palace].houTian !== null &&
+                `後天${PALACE_NUMBERS[palace].houTian}・`}
+              五行{PALACE_NUMBERS[palace].wuXing.join('/')})
+            </span>
           </dd>
         </div>
         <div>
