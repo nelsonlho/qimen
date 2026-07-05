@@ -377,6 +377,9 @@ export default function App() {
             <option value="0">零時換日</option>
           </select>
         </label>
+      </div>
+
+      <div className="controls layers">
         <label className="opt check">
           <input
             type="checkbox"

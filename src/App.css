@@ -198,6 +198,10 @@ h1 {
   gap: 8px;
   justify-content: center;
   align-items: center;
+  margin-bottom: 10px;
+}
+
+.controls.layers {
   margin-bottom: 16px;
 }
 
