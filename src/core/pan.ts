@@ -11,7 +11,7 @@ import {
   xunShouYi,
   xunStart,
 } from './ganzhi'
-import { dayGanzhiIndex, juForDay, juForDayChaibu, type JuDayResult } from './ju'
+import { dayGanzhiIndex, juForDay, juForDayChaibu, juForHourXun, type JuDayResult } from './ju'
 import { dayNumber } from './solarTerms'
 import type { Chart, DateParts, PalaceInfo, Pillars, QimenOptions } from './types'
 
@@ -91,7 +91,12 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
   }
 
   // --- 定局 ---
-  const ju: JuDayResult = method === '拆補' ? juForDayChaibu(dayJdn) : juForDay(dayJdn, threshold)
+  const ju: JuDayResult =
+    method === '拆補'
+      ? juForDayChaibu(dayJdn)
+      : method === '旬首'
+        ? juForHourXun(dayJdn, hourGz, threshold)
+        : juForDay(dayJdn, threshold)
   const plate = earthPlate(ju.dun, ju.ju)
 
   // --- 旬首、值符值使 ---

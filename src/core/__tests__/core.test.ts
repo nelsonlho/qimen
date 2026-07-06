@@ -341,3 +341,32 @@ describe('擇日格判器', () => {
     expect(matchZeGe(base).filter((h) => h.name.includes('遁'))).toHaveLength(0)
   })
 })
+
+describe('旬首法(十刻一局)', () => {
+  it('用戶刊例:辛巳日(小暑上元陰八)戊子時甲申旬陰六、甲午時甲午旬陰五', () => {
+    // 2026-07-06 辛巳日,置閏定元:小暑上元陰遁八局(符頭己卯超三日)
+    const zi = computeChart({ year: 2026, month: 7, day: 6, hour: 0, minute: 30 }, { method: '旬首' })
+    expect(zi.pillars.day).toBe('辛巳')
+    expect(zi.pillars.hour).toBe('戊子')
+    expect(zi.ju.termName).toBe('小暑')
+    expect(zi.ju.yuan).toBe(1)
+    expect(zi.ju.dun).toBe('陰')
+    expect(zi.ju.ju).toBe(6) // 甲申旬:8−2
+    const wu = computeChart({ year: 2026, month: 7, day: 6, hour: 11, minute: 30 }, { method: '旬首' })
+    expect(wu.pillars.hour).toBe('甲午')
+    expect(wu.ju.ju).toBe(5) // 甲午旬:8−3
+  })
+
+  it('陽遁順加:冬至上元甲子旬一局、甲戌旬二局', () => {
+    const segs = buildSegments(9)
+    const seg = segs.find(
+      (s) => s.startJdn > dayNumber(2000, 1, 1) && s.termName === '冬至' && !s.isLeap,
+    )!
+    const ymd = jdnToDate(seg.startJdn)
+    const zi = computeChart({ ...ymd, hour: 0, minute: 30 }, { method: '旬首' })
+    expect(zi.ju.ju).toBe(1) // 甲子旬
+    const xu = computeChart({ ...ymd, hour: 19, minute: 30 }, { method: '旬首' })
+    expect(xu.pillars.hour).toBe('甲戌')
+    expect(xu.ju.ju).toBe(2) // 甲戌旬:1+1
+  })
+})

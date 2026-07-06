@@ -469,6 +469,7 @@ export default function App() {
           >
             <option value="置閏">置閏法</option>
             <option value="拆補">拆補法</option>
+            <option value="旬首">旬首法(十刻一局)</option>
           </select>
         </label>
         <label className="opt">
@@ -586,7 +587,8 @@ export default function App() {
 
           <footer>
             <p>
-              置閏法:符頭超節氣九日(實差)以上,逢芒種大雪重用三元;拆補法:交節即換局,元按符頭拆定。
+              置閏法:符頭超節氣九日(實差)以上,逢芒種大雪重用三元;拆補法:交節即換局,元按符頭拆定;
+              旬首法:元同置閏,自符頭日甲子時起每旬(十時辰)進一局,陽順陰逆(劉伯溫/透派時盤之制)。
               時間依東八區。支援約 1900–2100 年。
             </p>
           </footer>

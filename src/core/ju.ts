@@ -154,6 +154,21 @@ export function juForDay(jdn: number, threshold = 9): JuDayResult {
   }
 }
 
+/**
+ * 旬首法(十刻一局,劉伯溫/透派立向時盤之制):
+ * 定元與置閏法同(符頭統三元、芒種大雪置閏)。
+ * 一元五日,自符頭日(必甲己日)甲子時起,每旬(十時辰)進一局:
+ * 甲子旬用元局,以次陽遁順加、陰遁逆減。
+ * 時辰所屬旬即定其局,故 k = 時旬序(甲子0…甲寅5)。
+ */
+export function juForHourXun(jdn: number, hourGz: number, threshold = 9): JuDayResult {
+  const base = juForDay(jdn, threshold)
+  const k = Math.floor((hourGz - (hourGz % 10)) / 10)
+  const shift = base.dun === '陽' ? base.ju + k : base.ju - k
+  const ju = ((shift - 1) % 9 + 9) % 9 + 1
+  return { ...base, ju }
+}
+
 /** 拆補法:交節即換,元按當日符頭之支拆定 */
 export function juForDayChaibu(jdn: number): JuDayResult {
   const terms = getTerms(SIM_START, SIM_END)

@@ -4,7 +4,7 @@ export type Dun = '陽' | '陰'
 
 export type ChaoJieStatus = '超神' | '接氣' | '正授' | '置閏' | '拆補'
 
-export type JuMethod = '置閏' | '拆補'
+export type JuMethod = '置閏' | '拆補' | '旬首'
 
 export interface DateParts {
   year: number
