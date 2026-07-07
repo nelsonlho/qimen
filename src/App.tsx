@@ -538,6 +538,7 @@ export default function App() {
           </div>
 
           <div className="summary">
+            <span>農曆{chart.lunarDate}</span>
             <span>
               {chart.ju.termName}
               {chart.ju.yuanName}・{chart.ju.dun}遁{chart.ju.ju}局

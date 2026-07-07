@@ -406,3 +406,15 @@ describe('八刻法(一時辰八刻)', () => {
     expect(c.ju.ke).toBeUndefined()
   })
 })
+
+describe('農曆日期', () => {
+  it('2026-07-06 為五月廿二', () => {
+    const c = computeChart({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 })
+    expect(c.lunarDate).toBe('五月廿二')
+  })
+
+  it('閏月正體:2025-08-06 為閏六月十三', () => {
+    const c = computeChart({ year: 2025, month: 8, day: 6, hour: 12, minute: 0 })
+    expect(c.lunarDate).toBe('閏六月十三')
+  })
+})

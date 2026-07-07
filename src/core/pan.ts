@@ -89,6 +89,8 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
     day: ganzhiName(dayGz),
     hour: ganzhiName(hourGz),
   }
+  // getMonthInChinese 已含閏字(簡體),轉正體
+  const lunarDate = `${lunar.getMonthInChinese().replace('闰', '閏').replace('腊', '臘')}月${lunar.getDayInChinese()}`
 
   // --- 定局 ---
   // 八刻法:局同旬首法(依時辰所屬旬之符首定局),一時辰八刻僅記刻序。
@@ -194,6 +196,7 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
   return {
     input,
     pillars,
+    lunarDate,
     ju: {
       method,
       dun: ju.dun,

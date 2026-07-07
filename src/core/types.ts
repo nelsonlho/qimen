@@ -66,6 +66,8 @@ export interface PalaceInfo {
 export interface Chart {
   input: DateParts
   pillars: Pillars
+  /** 當日農曆日期,如 六月十二、閏五月初三 */
+  lunarDate: string
   ju: JuInfo
   xunShou: string // 旬首,如 甲子(戊)
   xunYi: string // 旬首所遁儀
