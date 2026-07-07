@@ -3,6 +3,7 @@ import { GE_CATALOG, searchGe } from '../search'
 import { analyzeChart } from '../analysis'
 import { computeChart } from '../pan'
 import { BRANCH_ELEMENT, PALACE_ELEMENT, STEM_ELEMENT, seasonStrength, sheng } from '../wuxing'
+import type { Stage } from '../changsheng'
 import type { DateParts } from '../types'
 
 const START: DateParts = { year: 2026, month: 7, day: 6, hour: 0, minute: 0 }
@@ -151,6 +152,79 @@ describe('擇時反查', () => {
         endAfter(1),
       ),
     ).toEqual([])
+  })
+
+  it('用神比和:戊土比和年命己土恆真;甲木比和庚金恆假', () => {
+    const hits = searchGe(
+      { yong: [{ yong: { kind: '干', stem: '戊' }, relation: '比和', target: { kind: '命', stem: '己' } }] },
+      START,
+      endAfter(1),
+    )
+    expect(hits.length).toBeGreaterThanOrEqual(12)
+    expect(hits.every((h) => h.matches.some((m) => m.label === '戊比和年命己'))).toBe(true)
+    expect(
+      searchGe(
+        { yong: [{ yong: { kind: '干', stem: '甲' }, relation: '比和', target: { kind: '命', stem: '庚' } }] },
+        START,
+        endAfter(1),
+      ),
+    ).toEqual([])
+  })
+
+  it('用神同宮:開門與日干同宮 ⇔ 開門宮天盤有日干', () => {
+    const days = 5
+    const expected = new Set<string>()
+    for (const parts of scanHours(days)) {
+      const chart = computeChart(parts)
+      const doorPalace = chart.palaces.find((p) => p.door === '開門')
+      if (doorPalace?.skyStems.includes(chart.pillars.day[0])) {
+        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
+      }
+    }
+    const hits = searchGe(
+      { yong: [{ yong: { kind: '門', name: '開門' }, relation: '同宮', target: { kind: '柱', pillar: 'day' } }] },
+      START,
+      endAfter(days),
+    )
+    expect(hits.length).toBe(expected.size)
+    for (const h of hits) {
+      const m = h.matches.find((x) => x.label === '開門與日干同宮')
+      expect(m).toBeDefined()
+      expect(m!.palace).toBeGreaterThanOrEqual(1)
+    }
+  })
+
+  it('十二長生:日干處某階段,與盤面斷析一致', () => {
+    // 取首時辰,問日干天盤落宮之長生階段
+    const chart = computeChart({ ...START, hour: 1 })
+    const ana = analyzeChart(chart)
+    const dayStem = chart.pillars.day[0]
+    const allStages = new Set<string>()
+    for (const pa of ana.palaces) {
+      const st = pa.skyStages.find((s) => s.stem === dayStem)
+      if (st) for (const b of st.perBranch) allStages.add(b.stage)
+    }
+    expect(allStages.size).toBeGreaterThan(0)
+    const someStage = [...allStages][0] as Stage
+    const hits = searchGe(
+      { changsheng: [{ stem: { kind: '柱', pillar: 'day' }, stages: [someStage] }] },
+      START,
+      endAfter(1),
+    )
+    // 首時辰必中
+    expect(
+      hits.some((h) => h.hourGZ === chart.pillars.hour && h.matches.some((m) => m.label.includes(someStage))),
+    ).toBe(true)
+    // 反例:取日干該時辰所無之階段
+    const absent = (['長生', '沐浴', '冠帶', '臨官', '帝旺', '衰', '病', '死', '墓', '絕', '胎', '養'] as const).find(
+      (s) => !allStages.has(s),
+    )!
+    const missHits = searchGe(
+      { changsheng: [{ stem: { kind: '柱', pillar: 'day' }, stages: [absent] }] },
+      START,
+      endAfter(1),
+    )
+    expect(missHits.some((h) => h.hourGZ === chart.pillars.hour)).toBe(false)
   })
 
   it('複合:格 AND 用神,結果為交集', () => {

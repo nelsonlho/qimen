@@ -5,6 +5,7 @@ import {
   GE_CATALOG,
   GOD_NAMES,
   PILLAR_LABEL,
+  STAGES,
   STAR_NAMES,
   STEMS,
   searchGe,
@@ -17,7 +18,9 @@ import type {
   PillarKey,
   SearchHit,
   SearchQuery,
-  ShengTarget,
+  Stage,
+  StemRef,
+  YongRelation,
   YongShen,
 } from './core';
 
@@ -56,6 +59,15 @@ function decodeYong(v: string): YongShen {
   return { kind: kind as '門' | '星' | '神', name: rest };
 }
 
+/** 干指涉編碼('柱:day' 或 '命')→ StemRef */
+function decodeStemRef(target: string, year: number): StemRef {
+  return target === '命'
+    ? { kind: '命', stem: yearStem(year) }
+    : { kind: '柱', pillar: target.split(':')[1] as PillarKey };
+}
+
+const SI_JI: Stage[] = ['長生', '冠帶', '臨官', '帝旺'];
+
 interface WangRow {
   palace: number;
   accept: '旺相' | '旺' | '相';
@@ -63,8 +75,15 @@ interface WangRow {
 
 interface YongRow {
   yong: string; // 編碼值
+  relation: YongRelation;
   target: string; // 柱:day… 或 命
   year: number; // 年命之生年
+}
+
+interface CsRow {
+  stem: string; // 柱:day… 或 命
+  stage: string; // 長生…養,或 '四吉'
+  year: number;
 }
 
 function pad(n: number): string {
@@ -108,6 +127,7 @@ export default function Search({
   );
   const [wangRows, setWangRows] = useState<WangRow[]>([]);
   const [yongRows, setYongRows] = useState<YongRow[]>([]);
+  const [csRows, setCsRows] = useState<CsRow[]>([]);
   const [fromDate, setFromDate] = useState(() => toDateStr(new Date()));
   const [toDate, setToDate] = useState(() =>
     toDateStr(new Date(Date.now() + 7 * 86400_000)),
@@ -136,7 +156,7 @@ export default function Search({
     reset();
   };
 
-  const condCount = geSel.size + wangRows.length + yongRows.length;
+  const condCount = geSel.size + wangRows.length + yongRows.length + csRows.length;
 
   const run = () => {
     const fm = fromDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -179,9 +199,12 @@ export default function Search({
       })),
       yong: yongRows.map((y) => ({
         yong: decodeYong(y.yong),
-        target: (y.target === '命'
-          ? { kind: '命', stem: yearStem(y.year) }
-          : { kind: '柱', pillar: y.target.split(':')[1] as PillarKey }) as ShengTarget,
+        relation: y.relation,
+        target: decodeStemRef(y.target, y.year),
+      })),
+      changsheng: csRows.map((c) => ({
+        stem: decodeStemRef(c.stem, c.year),
+        stages: c.stage === '四吉' ? SI_JI : [c.stage as Stage],
       })),
     };
     setResults(
@@ -350,7 +373,19 @@ export default function Search({
                   </optgroup>
                 ))}
               </select>
-              生
+              <select
+                value={y.relation}
+                onChange={(e) => {
+                  const rows = [...yongRows];
+                  rows[i] = { ...y, relation: e.target.value as YongRelation };
+                  setYongRows(rows);
+                  reset();
+                }}
+              >
+                <option value="生">生</option>
+                <option value="比和">比和</option>
+                <option value="同宮">同宮(天盤)</option>
+              </select>
               <select
                 value={y.target}
                 onChange={(e) => {
@@ -398,6 +433,73 @@ export default function Search({
               </button>
             </div>
           ))}
+          {csRows.map((c, i) => (
+            <div className="cond-row" key={`c${i}`}>
+              <strong>長生</strong>
+              <select
+                value={c.stem}
+                onChange={(e) => {
+                  const rows = [...csRows];
+                  rows[i] = { ...c, stem: e.target.value };
+                  setCsRows(rows);
+                  reset();
+                }}
+              >
+                {PILLAR_KEYS.map((p) => (
+                  <option value={`柱:${p}`} key={p}>
+                    盤之{PILLAR_LABEL[p]}
+                  </option>
+                ))}
+                <option value="命">用家年命</option>
+              </select>
+              處
+              <select
+                value={c.stage}
+                onChange={(e) => {
+                  const rows = [...csRows];
+                  rows[i] = { ...c, stage: e.target.value };
+                  setCsRows(rows);
+                  reset();
+                }}
+              >
+                <option value="四吉">四吉(生帶祿旺)</option>
+                {STAGES.map((s) => (
+                  <option value={s} key={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              {c.stem === '命' && (
+                <label>
+                  生年
+                  <input
+                    type="number"
+                    className="year-input"
+                    value={c.year}
+                    min={1900}
+                    max={2100}
+                    onChange={(e) => {
+                      const rows = [...csRows];
+                      rows[i] = { ...c, year: +e.target.value };
+                      setCsRows(rows);
+                      reset();
+                    }}
+                  />
+                  <span className="year-stem">{yearStem(c.year)}年</span>
+                </label>
+              )}
+              <button
+                className="cond-del"
+                onClick={() => {
+                  setCsRows(csRows.filter((_, j) => j !== i));
+                  reset();
+                }}
+                aria-label="刪"
+              >
+                ×
+              </button>
+            </div>
+          ))}
           <div className="cond-add">
             <button
               onClick={() => {
@@ -411,12 +513,20 @@ export default function Search({
               onClick={() => {
                 setYongRows([
                   ...yongRows,
-                  { yong: '門:開門', target: '柱:day', year: 1990 },
+                  { yong: '門:開門', relation: '生', target: '柱:day', year: 1990 },
                 ]);
                 reset();
               }}
             >
-              +用神生干
+              +用神
+            </button>
+            <button
+              onClick={() => {
+                setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990 }]);
+                reset();
+              }}
+            >
+              +長生
             </button>
           </div>
         </div>
@@ -491,7 +601,7 @@ export default function Search({
                         key={j}
                       >
                         {m.label}
-                        {m.kind === '格' && m.palaceName ? `·${m.palaceName}` : ''}
+                        {m.palaceName && m.kind !== '旺' ? `·${m.palaceName}` : ''}
                       </span>
                     ))}
                   </span>

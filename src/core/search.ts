@@ -16,6 +16,7 @@ import {
   sheng,
   type Element,
 } from './wuxing'
+import { type Stage } from './changsheng'
 import type { Chart, DateParts, QimenOptions } from './types'
 
 export interface GeCatalogEntry {
@@ -79,23 +80,38 @@ export type YongShen =
   | { kind: '干'; stem: string }
   | { kind: '柱'; pillar: PillarKey }
 
-/** 生之對象:盤之四柱干,或用家年命干 */
-export type ShengTarget = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string }
+/** 干之指涉:盤之四柱干,或用家年命干 */
+export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string }
 
-/** 用神生干條件 */
+/** @deprecated 舊名,同 StemRef */
+export type ShengTarget = StemRef
+
+/** 用神與干之關係:五行生、五行比和、天盤同宮 */
+export type YongRelation = '生' | '比和' | '同宮'
+
+/** 用神條件 */
 export interface YongCond {
   yong: YongShen
-  target: ShengTarget
+  target: StemRef
+  /** 缺省為「生」 */
+  relation?: YongRelation
+}
+
+/** 十二長生條件:某干(天盤落宮之支)處某長生階段,任一落宮任一支合即中 */
+export interface ChangShengCond {
+  stem: StemRef
+  stages: Stage[]
 }
 
 /**
- * 查詢:ge 列擇一即可(任一命中即列),wang/yong 全須成立。
- * 三者皆空 → 空結果。
+ * 查詢:ge 列擇一即可(任一命中即列),wang/yong/changsheng 全須成立。
+ * 皆空 → 空結果。
  */
 export interface SearchQuery {
   ge?: GeCond[]
   wang?: WangCond[]
   yong?: YongCond[]
+  changsheng?: ChangShengCond[]
 }
 
 export interface AvoidOptions {
@@ -158,12 +174,51 @@ export function yongLabel(y: YongShen): string {
   }
 }
 
-export function targetLabel(t: ShengTarget): string {
+export function targetLabel(t: StemRef): string {
   return t.kind === '柱' ? PILLAR_LABEL[t.pillar] : `年命${t.stem}`
 }
 
+function resolveStem(r: StemRef, chart: Chart): string {
+  return r.kind === '柱' ? chart.pillars[r.pillar][0] : r.stem
+}
+
+/** 用神天盤落宮(門/星/神所在;干/柱干取天盤所在,或有二宮) */
+function yongPalaces(y: YongShen, chart: Chart): number[] {
+  const out: number[] = []
+  for (const info of chart.palaces) {
+    switch (y.kind) {
+      case '門':
+        if (info.door === y.name) out.push(info.palace)
+        break
+      case '星':
+        if (info.stars.includes(y.name)) out.push(info.palace)
+        break
+      case '神':
+        if (info.god === y.name) out.push(info.palace)
+        break
+      case '干':
+        if (info.skyStems.includes(y.stem)) out.push(info.palace)
+        break
+      case '柱':
+        if (info.skyStems.includes(chart.pillars[y.pillar][0])) out.push(info.palace)
+        break
+    }
+  }
+  return out
+}
+
+function stemSkyPalaces(stem: string, chart: Chart): number[] {
+  return chart.palaces.filter((p) => p.skyStems.includes(stem)).map((p) => p.palace)
+}
+
 function hasQuery(q: SearchQuery): boolean {
-  return (q.ge?.length ?? 0) + (q.wang?.length ?? 0) + (q.yong?.length ?? 0) > 0
+  return (
+    (q.ge?.length ?? 0) +
+      (q.wang?.length ?? 0) +
+      (q.yong?.length ?? 0) +
+      (q.changsheng?.length ?? 0) >
+    0
+  )
 }
 
 /**
@@ -256,11 +311,55 @@ function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): Searc
     matches.push({ kind: '旺', label: `${name}${st}`, palace: w.palace, palaceName: name })
   }
 
-  // 用神生干:全須成立
+  // 用神:全須成立
   for (const y of query.yong ?? []) {
-    const targetStem = y.target.kind === '柱' ? chart.pillars[y.target.pillar][0] : y.target.stem
-    if (!sheng(yongElement(y.yong, chart), STEM_ELEMENT[targetStem])) return null
-    matches.push({ kind: '用', label: `${yongLabel(y.yong)}生${targetLabel(y.target)}` })
+    const relation = y.relation ?? '生'
+    const targetStem = resolveStem(y.target, chart)
+    if (relation === '同宮') {
+      const common = yongPalaces(y.yong, chart).filter((p) =>
+        stemSkyPalaces(targetStem, chart).includes(p),
+      )
+      if (common.length === 0) return null
+      const name = chart.palaces[common[0] - 1].name
+      matches.push({
+        kind: '用',
+        label: `${yongLabel(y.yong)}與${targetLabel(y.target)}同宮`,
+        palace: common[0],
+        palaceName: name,
+      })
+    } else {
+      const a = yongElement(y.yong, chart)
+      const b = STEM_ELEMENT[targetStem]
+      if (relation === '生' ? !sheng(a, b) : a !== b) return null
+      matches.push({
+        kind: '用',
+        label: `${yongLabel(y.yong)}${relation === '生' ? '生' : '比和'}${targetLabel(y.target)}`,
+      })
+    }
+  }
+
+  // 十二長生:全須成立(干之天盤落宮,任一落宮任一支合即中)
+  for (const c of query.changsheng ?? []) {
+    const stem = resolveStem(c.stem, chart)
+    let hit: { palace: number; stage: Stage } | null = null
+    for (const pa of ana.palaces) {
+      const st = pa.skyStages.find((s) => s.stem === stem)
+      if (!st) continue
+      const b = st.perBranch.find((x) => c.stages.includes(x.stage))
+      if (b) {
+        hit = { palace: pa.palace, stage: b.stage }
+        break
+      }
+    }
+    if (!hit) return null
+    const name = chart.palaces[hit.palace - 1].name
+    const base = c.stem.kind === '柱' ? `${PILLAR_LABEL[c.stem.pillar]}${stem}` : `年命${stem}`
+    matches.push({
+      kind: '用',
+      label: `${base}${hit.stage}`,
+      palace: hit.palace,
+      palaceName: name,
+    })
   }
 
   return matches
