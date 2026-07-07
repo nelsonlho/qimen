@@ -780,12 +780,119 @@ footer {
   margin-top: 4px;
 }
 
-.ge-groups {
+.cond-card {
   background: var(--cell);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 8px 12px 10px;
   box-shadow: var(--shadow-soft);
+}
+
+.cond-card + .cond-card {
+  margin-top: 10px;
+}
+
+.cond-title {
+  font-size: 0.72rem;
+  color: var(--gold);
+  letter-spacing: 0.12em;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 4px;
+}
+
+.cond-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.cond-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+
+.cond-row strong {
+  color: var(--accent2);
+  font-size: 0.78rem;
+  flex: 0 0 3.2em;
+}
+
+.cond-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.cond-row select,
+.cond-row input {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: var(--cell-raised);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 2px 6px;
+}
+
+.year-input {
+  width: 4.6em;
+}
+
+.year-stem {
+  color: var(--gold);
+}
+
+.cond-del {
+  font: inherit;
+  line-height: 1;
+  padding: 2px 8px;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cond-del:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cond-add {
+  display: flex;
+  gap: 6px;
+}
+
+.cond-add button {
+  font: inherit;
+  font-size: 0.76rem;
+  padding: 2px 10px;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cond-add button:hover {
+  color: var(--accent2);
+  border-color: var(--accent2);
+}
+
+.chip-旺 {
+  background: var(--gold);
+}
+
+.chip-用 {
+  background: var(--accent2);
 }
 
 .ge-group {

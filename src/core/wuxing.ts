@@ -23,6 +23,10 @@ export const STAR_ELEMENT: Record<string, Element> = {
   天蓬: '水', 天任: '土', 天沖: '木', 天輔: '木', 天英: '火', 天芮: '土', 天柱: '金', 天心: '金', 天禽: '土',
 }
 
+export const GOD_ELEMENT: Record<string, Element> = {
+  值符: '土', 騰蛇: '火', 太陰: '金', 六合: '木', 白虎: '金', 玄武: '水', 九地: '土', 九天: '金',
+}
+
 const SHENG_NEXT: Record<Element, Element> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' }
 const KE_NEXT: Record<Element, Element> = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' }
 
@@ -45,4 +49,16 @@ export function starWangShuai(mine: Element, season: Element): '旺' | '相' | '
   if (sheng(season, mine)) return '廢'
   if (ke(mine, season)) return '休'
   return '囚'
+}
+
+/**
+ * 四時旺相休囚死(通行說,用於宮氣):
+ * 當令旺,令生者相,生令者休,剋令者囚,令剋者死
+ */
+export function seasonStrength(mine: Element, season: Element): '旺' | '相' | '休' | '囚' | '死' {
+  if (mine === season) return '旺'
+  if (sheng(season, mine)) return '相'
+  if (sheng(mine, season)) return '休'
+  if (ke(mine, season)) return '囚'
+  return '死'
 }

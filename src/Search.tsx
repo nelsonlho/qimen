@@ -1,6 +1,25 @@
 import { useMemo, useState } from 'react';
-import { BRANCHES, GE_CATALOG, searchGe } from './core';
-import type { AvoidOptions, JuMethod, SearchHit } from './core';
+import {
+  BRANCHES,
+  DOOR_NAMES,
+  GE_CATALOG,
+  GOD_NAMES,
+  PILLAR_LABEL,
+  STAR_NAMES,
+  STEMS,
+  searchGe,
+} from './core';
+import type {
+  AvoidOptions,
+  DateParts,
+  GeCond,
+  JuMethod,
+  PillarKey,
+  SearchHit,
+  SearchQuery,
+  ShengTarget,
+  YongShen,
+} from './core';
 
 const GROUPS = ['九遁', '詐假', '三奇', '剋應吉格'] as const;
 
@@ -13,11 +32,55 @@ const AVOID_ITEMS: [keyof AvoidOptions, string][] = [
   ['wuBuYuShi', '避五不遇時'],
 ];
 
+/** 條件可用之八宮(中五不論門神,不列) */
+const COND_PALACES: [number, string][] = [
+  [1, '坎一'], [2, '坤二'], [3, '震三'], [4, '巽四'],
+  [6, '乾六'], [7, '兌七'], [8, '艮八'], [9, '離九'],
+];
+
+const PILLAR_KEYS: PillarKey[] = ['year', 'month', 'day', 'hour'];
+
+/** 用神選項編碼:kind:name */
+const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
+  { group: '八門', items: DOOR_NAMES.map((n) => [`門:${n}`, n] as [string, string]) },
+  { group: '九星', items: STAR_NAMES.map((n) => [`星:${n}`, n] as [string, string]) },
+  { group: '八神', items: GOD_NAMES.map((n) => [`神:${n}`, n] as [string, string]) },
+  { group: '十干', items: STEMS.map((s) => [`干:${s}`, s] as [string, string]) },
+  { group: '盤之柱干', items: PILLAR_KEYS.map((p) => [`柱:${p}`, PILLAR_LABEL[p]] as [string, string]) },
+];
+
+function decodeYong(v: string): YongShen {
+  const [kind, rest] = v.split(':') as [string, string];
+  if (kind === '干') return { kind: '干', stem: rest };
+  if (kind === '柱') return { kind: '柱', pillar: rest as PillarKey };
+  return { kind: kind as '門' | '星' | '神', name: rest };
+}
+
+interface WangRow {
+  palace: number;
+  accept: '旺相' | '旺' | '相';
+}
+
+interface YongRow {
+  yong: string; // 編碼值
+  target: string; // 柱:day… 或 命
+  year: number; // 年命之生年
+}
+
 function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** 時支 → 時辰起訖,如 辰時07–09時 */
+/** 生年 → 年干(西曆年 - 4 mod 10;跨立春生者宜自斟) */
+function yearStem(year: number): string {
+  return STEMS[(((year - 4) % 10) + 10) % 10];
+}
+
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** 時支 → 時辰起訖,如 07–09時 */
 function hourRange(branch: string): string {
   const idx = BRANCHES.indexOf(branch as (typeof BRANCHES)[number]);
   const start = (idx * 2 + 23) % 24;
@@ -37,36 +100,101 @@ export default function Search({
 }: {
   method: JuMethod;
   ziShiMode: '23' | '0';
-  onPick: (date: SearchHit['date'], palace: number) => void;
+  onPick: (date: DateParts, palace: number | null) => void;
 }) {
-  const [chosen, setChosen] = useState<Set<string>>(new Set());
-  const [days, setDays] = useState(7);
+  // 格局:名 → 宮/門限定(0/'' = 任意)
+  const [geSel, setGeSel] = useState<Map<string, { palace: number; door: string }>>(
+    new Map(),
+  );
+  const [wangRows, setWangRows] = useState<WangRow[]>([]);
+  const [yongRows, setYongRows] = useState<YongRow[]>([]);
+  const [fromDate, setFromDate] = useState(() => toDateStr(new Date()));
+  const [toDate, setToDate] = useState(() =>
+    toDateStr(new Date(Date.now() + 7 * 86400_000)),
+  );
   const [avoid, setAvoid] = useState<AvoidOptions>({});
   const [results, setResults] = useState<SearchHit[] | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
-  const toggle = (name: string) => {
-    setChosen((prev) => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
-      return next;
-    });
+  const reset = () => {
     setResults(null);
+    setRangeError(null);
   };
 
+  const toggleGe = (name: string) => {
+    setGeSel((prev) => {
+      const next = new Map(prev);
+      if (next.has(name)) next.delete(name);
+      else next.set(name, { palace: 0, door: '' });
+      return next;
+    });
+    reset();
+  };
+
+  const setGeQual = (name: string, q: { palace: number; door: string }) => {
+    setGeSel((prev) => new Map(prev).set(name, q));
+    reset();
+  };
+
+  const condCount = geSel.size + wangRows.length + yongRows.length;
+
   const run = () => {
+    const fm = fromDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const tm = toDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!fm || !tm) {
+      setRangeError('請選起訖日期');
+      return;
+    }
     const now = new Date();
+    const fromIsToday = fromDate === toDateStr(now);
+    // 自日為今日者,自此刻起搜;否則自該日 00:00
+    const start: DateParts = {
+      year: +fm[1],
+      month: +fm[2],
+      day: +fm[3],
+      hour: fromIsToday ? now.getHours() : 0,
+      minute: fromIsToday ? now.getMinutes() : 0,
+    };
+    const endDate = new Date(+tm[1], +tm[2] - 1, +tm[3] + 1); // 至日含全日
+    const spanDays =
+      (endDate.getTime() - new Date(+fm[1], +fm[2] - 1, +fm[3]).getTime()) / 86400_000;
+    if (spanDays <= 0) {
+      setRangeError('至日須不早於自日');
+      return;
+    }
+    if (spanDays > 366) {
+      setRangeError('範圍上限一年');
+      return;
+    }
+    setRangeError(null);
+    const query: SearchQuery = {
+      ge: [...geSel.entries()].map(([name, q]): GeCond => ({
+        name,
+        palace: q.palace || undefined,
+        door: q.door || undefined,
+      })),
+      wang: wangRows.map((w) => ({
+        palace: w.palace,
+        accept: w.accept === '旺相' ? (['旺', '相'] as const) : [w.accept],
+      })),
+      yong: yongRows.map((y) => ({
+        yong: decodeYong(y.yong),
+        target: (y.target === '命'
+          ? { kind: '命', stem: yearStem(y.year) }
+          : { kind: '柱', pillar: y.target.split(':')[1] as PillarKey }) as ShengTarget,
+      })),
+    };
     setResults(
       searchGe(
-        [...chosen],
+        query,
+        start,
         {
-          year: now.getFullYear(),
-          month: now.getMonth() + 1,
-          day: now.getDate(),
-          hour: now.getHours(),
-          minute: now.getMinutes(),
+          year: endDate.getFullYear(),
+          month: endDate.getMonth() + 1,
+          day: endDate.getDate(),
+          hour: 0,
+          minute: 0,
         },
-        days,
         { method, ziShiMode, avoid },
       ),
     );
@@ -87,33 +215,236 @@ export default function Search({
 
   return (
     <div className="search-panel">
-      <div className="ge-groups">
-        {GROUPS.map((group) => (
-          <div className="ge-group" key={group}>
-            <span className="ge-group-label">{group}</span>
-            <span className="ge-chips">
-              {GE_CATALOG.filter((e) => e.group === group).map((e) => (
-                <button
-                  key={e.name}
-                  className={`ge-chip${chosen.has(e.name) ? ' on' : ''}`}
-                  onClick={() => toggle(e.name)}
-                >
-                  {e.name}
+      {/* ── 格局 ── */}
+      <div className="cond-card">
+        <div className="cond-title">格局(擇一即得)</div>
+        <div className="ge-groups">
+          {GROUPS.map((group) => (
+            <div className="ge-group" key={group}>
+              <span className="ge-group-label">{group}</span>
+              <span className="ge-chips">
+                {GE_CATALOG.filter((e) => e.group === group).map((e) => (
+                  <button
+                    key={e.name}
+                    className={`ge-chip${geSel.has(e.name) ? ' on' : ''}`}
+                    onClick={() => toggleGe(e.name)}
+                  >
+                    {e.name}
+                  </button>
+                ))}
+              </span>
+            </div>
+          ))}
+        </div>
+        {geSel.size > 0 && (
+          <div className="cond-rows">
+            {[...geSel.entries()].map(([name, q]) => (
+              <div className="cond-row" key={name}>
+                <strong>{name}</strong>
+                <label>
+                  落
+                  <select
+                    value={q.palace}
+                    onChange={(e) => setGeQual(name, { ...q, palace: +e.target.value })}
+                  >
+                    <option value={0}>任意宮</option>
+                    {COND_PALACES.map(([p, n]) => (
+                      <option value={p} key={p}>
+                        {n}宮
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  遇
+                  <select
+                    value={q.door}
+                    onChange={(e) => setGeQual(name, { ...q, door: e.target.value })}
+                  >
+                    <option value="">任意門</option>
+                    {DOOR_NAMES.map((d) => (
+                      <option value={d} key={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="cond-del" onClick={() => toggleGe(name)} aria-label="刪">
+                  ×
                 </button>
-              ))}
-            </span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
+      {/* ── 宮旺・用神 ── */}
+      <div className="cond-card">
+        <div className="cond-title">加持條件(全須成立)</div>
+        <div className="cond-rows">
+          {wangRows.map((w, i) => (
+            <div className="cond-row" key={`w${i}`}>
+              <strong>宮旺</strong>
+              <select
+                value={w.palace}
+                onChange={(e) => {
+                  const rows = [...wangRows];
+                  rows[i] = { ...w, palace: +e.target.value };
+                  setWangRows(rows);
+                  reset();
+                }}
+              >
+                {COND_PALACES.map(([p, n]) => (
+                  <option value={p} key={p}>
+                    {n}宮
+                  </option>
+                ))}
+              </select>
+              <label>
+                於月令
+                <select
+                  value={w.accept}
+                  onChange={(e) => {
+                    const rows = [...wangRows];
+                    rows[i] = { ...w, accept: e.target.value as WangRow['accept'] };
+                    setWangRows(rows);
+                    reset();
+                  }}
+                >
+                  <option value="旺相">旺或相</option>
+                  <option value="旺">旺</option>
+                  <option value="相">相</option>
+                </select>
+              </label>
+              <button
+                className="cond-del"
+                onClick={() => {
+                  setWangRows(wangRows.filter((_, j) => j !== i));
+                  reset();
+                }}
+                aria-label="刪"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          {yongRows.map((y, i) => (
+            <div className="cond-row" key={`y${i}`}>
+              <strong>用神</strong>
+              <select
+                value={y.yong}
+                onChange={(e) => {
+                  const rows = [...yongRows];
+                  rows[i] = { ...y, yong: e.target.value };
+                  setYongRows(rows);
+                  reset();
+                }}
+              >
+                {YONG_OPTIONS.map((g) => (
+                  <optgroup label={g.group} key={g.group}>
+                    {g.items.map(([v, label]) => (
+                      <option value={v} key={v}>
+                        {label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              生
+              <select
+                value={y.target}
+                onChange={(e) => {
+                  const rows = [...yongRows];
+                  rows[i] = { ...y, target: e.target.value };
+                  setYongRows(rows);
+                  reset();
+                }}
+              >
+                {PILLAR_KEYS.map((p) => (
+                  <option value={`柱:${p}`} key={p}>
+                    盤之{PILLAR_LABEL[p]}
+                  </option>
+                ))}
+                <option value="命">用家年命</option>
+              </select>
+              {y.target === '命' && (
+                <label>
+                  生年
+                  <input
+                    type="number"
+                    className="year-input"
+                    value={y.year}
+                    min={1900}
+                    max={2100}
+                    onChange={(e) => {
+                      const rows = [...yongRows];
+                      rows[i] = { ...y, year: +e.target.value };
+                      setYongRows(rows);
+                      reset();
+                    }}
+                  />
+                  <span className="year-stem">{yearStem(y.year)}年</span>
+                </label>
+              )}
+              <button
+                className="cond-del"
+                onClick={() => {
+                  setYongRows(yongRows.filter((_, j) => j !== i));
+                  reset();
+                }}
+                aria-label="刪"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <div className="cond-add">
+            <button
+              onClick={() => {
+                setWangRows([...wangRows, { palace: 1, accept: '旺相' }]);
+                reset();
+              }}
+            >
+              +宮旺
+            </button>
+            <button
+              onClick={() => {
+                setYongRows([
+                  ...yongRows,
+                  { yong: '門:開門', target: '柱:day', year: 1990 },
+                ]);
+                reset();
+              }}
+            >
+              +用神生干
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 範圍・避忌・搜尋 ── */}
       <div className="controls search-opts">
         <label className="opt">
-          範圍
-          <select value={days} onChange={(e) => setDays(+e.target.value)}>
-            <option value={7}>未來7日</option>
-            <option value={30}>未來30日</option>
-            <option value={90}>未來90日</option>
-          </select>
+          自
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              reset();
+            }}
+          />
+        </label>
+        <label className="opt">
+          至
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              reset();
+            }}
+          />
         </label>
         {AVOID_ITEMS.map(([key, label]) => (
           <label className="opt check" key={key}>
@@ -125,13 +456,15 @@ export default function Search({
             {label}
           </label>
         ))}
-        <button className="search-go" onClick={run} disabled={chosen.size === 0}>
+        <button className="search-go" onClick={run} disabled={condCount === 0}>
           搜尋
         </button>
       </div>
 
+      {rangeError && <div className="error">{rangeError}</div>}
+
       {results && results.length === 0 && (
-        <div className="hint">此範圍內無所選之格;可放寬範圍或減避忌</div>
+        <div className="hint">此範圍內無合條件之時;可放寬範圍或減條件</div>
       )}
 
       {grouped && grouped.length > 0 && (
@@ -143,7 +476,9 @@ export default function Search({
                 <button
                   className="hit-row"
                   key={i}
-                  onClick={() => onPick(h.date, h.matches[0].palace)}
+                  onClick={() =>
+                    onPick(h.date, h.matches.find((m) => m.palace)?.palace ?? null)
+                  }
                 >
                   <span className="hit-time">
                     {h.hourGZ}時 {hourRange(h.hourGZ[1])}
@@ -151,8 +486,12 @@ export default function Search({
                   </span>
                   <span className="hit-matches">
                     {h.matches.map((m, j) => (
-                      <span className={`chip chip-${m.luck}`} key={j}>
-                        {m.name}·{m.palaceName}
+                      <span
+                        className={`chip ${m.kind === '格' ? `chip-${m.luck}` : `chip-${m.kind}`}`}
+                        key={j}
+                      >
+                        {m.label}
+                        {m.kind === '格' && m.palaceName ? `·${m.palaceName}` : ''}
                       </span>
                     ))}
                   </span>
@@ -165,7 +504,7 @@ export default function Search({
 
       {!results && (
         <div className="hint">
-          擇欲求之格,定範圍,按搜尋;點結果即載其時之盤
+          擇格局或加條件,定起訖之日,按搜尋;點結果即載其時之盤
         </div>
       )}
     </div>

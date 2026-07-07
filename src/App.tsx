@@ -548,7 +548,7 @@ export default function App() {
         <Search
           method={method}
           ziShiMode={ziShiMode}
-          onPick={(d: DateParts, palace: number) => {
+          onPick={(d: DateParts, palace: number | null) => {
             const p = (n: number) => String(n).padStart(2, '0');
             setValue(
               `${d.year}-${p(d.month)}-${p(d.day)}T${p(d.hour)}:${p(d.minute)}`,
