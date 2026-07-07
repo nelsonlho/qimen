@@ -472,7 +472,7 @@ export default function App() {
             <option value="置閏">置閏法</option>
             <option value="拆補">拆補法</option>
             <option value="旬首">旬首法(十刻一局)</option>
-            <option value="八刻">八刻法(一刻一局)</option>
+            <option value="八刻">八刻法(一時辰八刻)</option>
           </select>
         </label>
         <label className="opt">
