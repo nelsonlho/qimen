@@ -50,12 +50,14 @@ const COND_PALACES: [number, string][] = [
 
 const PILLAR_KEYS: PillarKey[] = ['year', 'month', 'day', 'hour'];
 
-/** 用神選項編碼:kind:name */
+/** 用神選項編碼:kind:name。兩側同單,互為生剋比和同宮 */
 const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
   { group: '八門', items: DOOR_NAMES.map((n) => [`門:${n}`, n] as [string, string]) },
   { group: '九星', items: STAR_NAMES.map((n) => [`星:${n}`, n] as [string, string]) },
   { group: '八神', items: GOD_NAMES.map((n) => [`神:${n}`, n] as [string, string]) },
-  { group: '十干', items: STEMS.map((s) => [`干:${s}`, s] as [string, string]) },
+  // 遁甲:甲不上盤,天地盤皆九干
+  { group: '天盤干', items: STEMS.filter((s) => s !== '甲').map((s) => [`天:${s}`, `天盤${s}`] as [string, string]) },
+  { group: '地盤干', items: STEMS.filter((s) => s !== '甲').map((s) => [`地:${s}`, `地盤${s}`] as [string, string]) },
   { group: '盤之柱干', items: PILLAR_KEYS.map((p) => [`柱:${p}`, PILLAR_LABEL[p]] as [string, string]) },
   { group: '用家', items: [['命', '年命']] as [string, string][] },
 ];
@@ -63,7 +65,8 @@ const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
 function decodeYong(v: string, year: number): YongShen {
   if (v === '命') return { kind: '命', stem: yearStem(year) };
   const [kind, rest] = v.split(':') as [string, string];
-  if (kind === '干') return { kind: '干', stem: rest };
+  if (kind === '天') return { kind: '天盤干', stem: rest };
+  if (kind === '地') return { kind: '地盤干', stem: rest };
   if (kind === '柱') return { kind: '柱', pillar: rest as PillarKey };
   return { kind: kind as '門' | '星' | '神', name: rest };
 }
@@ -259,7 +262,7 @@ export default function Search({
       yong: yongRows.map((y) => ({
         yong: decodeYong(y.yong, y.year),
         relation: y.relation,
-        target: decodeStemRef(y.target, y.year),
+        target: decodeYong(y.target, y.year),
       })),
       changsheng: csRows.map((c) => ({
         stem: decodeStemRef(c.stem, c.year),
@@ -520,8 +523,7 @@ export default function Search({
                     <option value="生">生</option>
                     <option value="比和">比和</option>
                     <option value="剋">剋</option>
-                    <option value="被剋">被剋</option>
-                    <option value="同宮">同宮(天盤)</option>
+                    <option value="同宮">同宮</option>
                   </select>
                   <select
                     value={y.target}
@@ -532,12 +534,15 @@ export default function Search({
                       reset();
                     }}
                   >
-                    {PILLAR_KEYS.map((p) => (
-                      <option value={`柱:${p}`} key={p}>
-                        盤之{PILLAR_LABEL[p]}
-                      </option>
+                    {YONG_OPTIONS.map((g) => (
+                      <optgroup label={g.group} key={g.group}>
+                        {g.items.map(([v, label]) => (
+                          <option value={v} key={v}>
+                            {label}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
-                    <option value="命">用家年命</option>
                   </select>
                   {(y.yong === '命' || y.target === '命') && (
                     <label>

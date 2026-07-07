@@ -181,7 +181,7 @@ describe('擇時反查', () => {
     ).toEqual([])
   })
 
-  it('用神剋/被剋:年命庚金剋甲木;甲木被庚金剋;方向不可倒', () => {
+  it('用神剋:年命庚金剋甲木;方向不可倒,倒者換側表之', () => {
     // 年命亦可為用神側
     const kehits = searchGe(
       { yong: [{ yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } }] },
@@ -190,7 +190,7 @@ describe('擇時反查', () => {
     )
     expect(kehits.length).toBeGreaterThanOrEqual(12)
     expect(kehits.every((h) => h.matches.some((m) => m.label === '年命庚剋年命甲'))).toBe(true)
-    // 倒向恆假
+    // 倒向恆假(「被剋」即換側,無專項)
     expect(
       searchGe(
         { yong: [{ yong: { kind: '命', stem: '甲' }, relation: '剋', target: { kind: '命', stem: '庚' } }] },
@@ -198,14 +198,6 @@ describe('擇時反查', () => {
         endAfter(1),
       ),
     ).toEqual([])
-    // 被剋 = 反向剋
-    const beihits = searchGe(
-      { yong: [{ yong: { kind: '干', stem: '甲' }, relation: '被剋', target: { kind: '命', stem: '庚' } }] },
-      START,
-      endAfter(1),
-    )
-    expect(beihits.length).toBeGreaterThanOrEqual(12)
-    expect(beihits.every((h) => h.matches.some((m) => m.label === '甲被年命庚剋'))).toBe(true)
   })
 
   it('用神剋盤之日干:與手掃全等', () => {
@@ -247,6 +239,54 @@ describe('擇時反查', () => {
       expect(m).toBeDefined()
       expect(m!.palace).toBeGreaterThanOrEqual(1)
     }
+  })
+
+  it('地盤干同宮:地盤乙與盤之日干同宮 ⇔ 某宮地盤有乙且天盤有日干', () => {
+    const days = 5
+    const expected = new Set<string>()
+    for (const parts of scanHours(days)) {
+      const chart = computeChart(parts)
+      if (
+        chart.palaces.some(
+          (p) => p.earthStems.includes('乙') && p.skyStems.includes(chart.pillars.day[0]),
+        )
+      ) {
+        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
+      }
+    }
+    const hits = searchGe(
+      {
+        yong: [
+          { yong: { kind: '地盤干', stem: '乙' }, relation: '同宮', target: { kind: '柱', pillar: 'day' } },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(hits.length).toBe(expected.size)
+    expect(hits.every((h) => h.matches.some((m) => m.label === '地盤乙與日干同宮'))).toBe(true)
+  })
+
+  it('門星互同宮:開門與天心同宮,與手掃全等', () => {
+    const days = 5
+    const expected = new Set<string>()
+    for (const parts of scanHours(days)) {
+      const chart = computeChart(parts)
+      if (chart.palaces.some((p) => p.door === '開門' && p.stars.includes('天心'))) {
+        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
+      }
+    }
+    const hits = searchGe(
+      {
+        yong: [
+          { yong: { kind: '門', name: '開門' }, relation: '同宮', target: { kind: '星', name: '天心' } },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(hits.length).toBe(expected.size)
+    expect(hits.every((h) => h.matches.some((m) => m.label === '開門與天心同宮'))).toBe(true)
   })
 
   it('十二長生:日干處某階段,與盤面斷析一致', () => {
