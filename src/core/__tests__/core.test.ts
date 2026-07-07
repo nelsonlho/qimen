@@ -447,3 +447,58 @@ describe('遁甲穿壬', () => {
     expect(new Set(Object.values(m)).size).toBe(12)
   })
 })
+
+describe('飛盤', () => {
+  const w9 = (n: number) => ((n - 1) % 9 + 9) % 9 + 1
+  const GODS_FLY = ['值符', '騰蛇', '太陰', '六合', '勾陳', '朱雀', '太常', '九地', '九天']
+
+  function checkFly(input: { year: number; month: number; day: number; hour: number; minute: number }) {
+    const chart = computeChart(input, { plate: '飛盤' })
+    expect(chart.plateStyle).toBe('飛盤')
+    // 九宮各一星一天盤干一地盤干,星九枚無重含天禽
+    const stars = chart.palaces.map((p) => p.stars)
+    expect(stars.every((s) => s.length === 1)).toBe(true)
+    expect(new Set(stars.flat()).size).toBe(9)
+    expect(stars.flat()).toContain('天禽')
+    expect(chart.palaces.every((p) => p.skyStems.length === 1 && p.earthStems.length === 1)).toBe(true)
+    expect(new Set(chart.palaces.map((p) => p.skyStems[0])).size).toBe(9)
+    // 值符星落時干宮,神為值符
+    const fuT = chart.palaces.find((p) => p.isZhiFu)!
+    expect(fuT.stars[0]).toBe(chart.zhiFuStar)
+    expect(fuT.god).toBe('值符')
+    // 飛佈方向:星攜本宮地盤干,src 自值符宮順序,dest 自時干宮陽順陰逆
+    const plateMap: Record<number, string> = {}
+    for (const p of chart.palaces) plateMap[p.palace] = p.earthStems[0]
+    const fuRaw = chart.palaces.find((p) => plateMap[p.palace] === chart.xunYi)!.palace
+    const dir = chart.ju.dun === '陽' ? 1 : -1
+    for (let i = 0; i < 9; i++) {
+      const src = w9(fuRaw + i)
+      const dest = w9(fuT.palace + dir * i)
+      expect(chart.palaces[dest - 1].skyStems[0]).toBe(plateMap[src])
+      expect(chart.palaces[dest - 1].god).toBe(GODS_FLY[i])
+    }
+    // 八門八枚,一宮懸空;值使宮之門為值使門
+    const doorless = chart.palaces.filter((p) => p.door === null)
+    expect(doorless.length).toBe(1)
+    const shi = chart.palaces.find((p) => p.isZhiShi)!
+    if (shi.door) expect(shi.door).toBe(chart.zhiShiDoor)
+    return chart
+  }
+
+  it('陰遁飛盤佈局', () => {
+    const chart = checkFly({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 })
+    expect(chart.ju.dun).toBe('陰')
+  })
+
+  it('陽遁飛盤佈局', () => {
+    const chart = checkFly({ year: 2026, month: 1, day: 15, hour: 10, minute: 0 })
+    expect(chart.ju.dun).toBe('陽')
+  })
+
+  it('轉盤為預設,不受影響', () => {
+    const chart = computeChart({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 })
+    expect(chart.plateStyle).toBe('轉盤')
+    expect(chart.palaces[4].stars).toEqual([])
+    expect(chart.palaces[1].earthStems.length).toBe(2) // 坤二寄中五干
+  })
+})

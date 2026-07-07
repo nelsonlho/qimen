@@ -21,6 +21,7 @@ import type {
   GeCond,
   JuMethod,
   PillarKey,
+  PlateStyle,
   SearchHit,
   SearchQuery,
   Stage,
@@ -156,10 +157,12 @@ function dayLabel(hit: SearchHit): string {
 export default function Search({
   method,
   ziShiMode,
+  plate,
   onPick,
 }: {
   method: JuMethod;
   ziShiMode: '23' | '0';
+  plate: PlateStyle;
   onPick: (date: DateParts, palace: number | null) => void;
 }) {
   const [intent, setIntent] = useState('');
@@ -299,7 +302,7 @@ export default function Search({
           hour: 0,
           minute: 0,
         },
-        { method, ziShiMode, avoid },
+        { method, ziShiMode, plate, avoid },
       ),
     );
   };

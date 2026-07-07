@@ -21,6 +21,7 @@ import type {
   JuMethod,
   PalaceAnalysis,
   PalaceInfo,
+  PlateStyle,
   TianJiang,
 } from './core';
 import Search from './Search';
@@ -147,10 +148,11 @@ function PalaceCell({
   );
   const watermark = <span className="trigram">{TRIGRAM[info.palace]}</span>;
   if (info.palace === 5) {
-    // 中宮統攝全局:全局之格列此,按之觀詳解
+    // 中宮:轉盤寄坤二僅列局訊;飛盤中五入盤,星干門神並列
+    const isFly = chart.plateStyle === '飛盤';
     return (
       <div
-        className={`palace center${selected ? ' selected' : ''}`}
+        className={`palace center${selected ? ' selected' : ''}${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}`}
         style={cellStyle}
         onClick={onSelect}
         role="button"
@@ -166,9 +168,23 @@ function PalaceCell({
           {chart.ju.yuanName}・{chart.ju.method}法
           {chart.ju.ke != null && `・第${chart.ju.ke}刻`}
         </div>
+        {isFly && (
+          <div className="center-fly">
+            <span className="god">{info.god?.slice(1)}</span>
+            <span className="star">
+              {info.stars.map((s) => s.slice(1)).join('')}
+              {info.isZhiFu && <span className="tag tag-fu">符</span>}
+            </span>
+            <span className="sky-stem">{info.skyStems.join('')}</span>
+            <span className="door">
+              {info.door ? info.door.slice(0, 1) : '無門'}
+              {info.isZhiShi && <span className="tag tag-shi">使</span>}
+            </span>
+          </div>
+        )}
         <div className="stem-row">
           <span className="earth-stem">{info.earthStems.join('')}</span>
-          <span className="ji-note">寄坤二</span>
+          {!isFly && <span className="ji-note">寄坤二</span>}
         </div>
         {globalGe.length > 0 && (
           <div className="global-badges">
@@ -424,6 +440,10 @@ export default function App() {
   const [value, setValue] = useState(() => toInputValue(new Date()));
   const [ziShiMode, setZiShiMode] = useState<'23' | '0'>('23');
   const [method, setMethod] = useState<JuMethod>('置閏');
+  const [plate, setPlate] = useState<PlateStyle>(() => {
+    const q = new URLSearchParams(location.search).get('plate');
+    return q === '飛盤' || q === '轉盤' ? q : '轉盤';
+  });
   const [selected, setSelected] = useState<number | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
     const q = new URLSearchParams(location.search).get('theme');
@@ -461,13 +481,13 @@ export default function App() {
     try {
       const chart = computeChart(
         { year: +m[1], month: +m[2], day: +m[3], hour: +m[4], minute: +m[5] },
-        { ziShiMode, method },
+        { ziShiMode, method, plate },
       );
       return { chart, ana: analyzeChart(chart), error: null };
     } catch (e) {
       return { chart: null, ana: null, error: (e as Error).message };
     }
-  }, [value, ziShiMode, method]);
+  }, [value, ziShiMode, method, plate]);
 
   // 穿壬:十二天將依日干晝夜貴佈支位
   const jiangMap =
@@ -499,7 +519,7 @@ export default function App() {
         <h1>
           奇門遁甲<span className="seal">陽盤</span>
         </h1>
-        <div className="subtitle">時家轉盤</div>
+        <div className="subtitle">時家{plate}</div>
       </header>
 
       <div className="view-tabs" role="tablist" aria-label="模式">
@@ -535,6 +555,16 @@ export default function App() {
             </button>
           </>
         )}
+        <label className="opt">
+          盤式
+          <select
+            value={plate}
+            onChange={(e) => setPlate(e.target.value as PlateStyle)}
+          >
+            <option value="轉盤">轉盤</option>
+            <option value="飛盤">飛盤</option>
+          </select>
+        </label>
         <label className="opt">
           定局
           <select
@@ -601,6 +631,7 @@ export default function App() {
         <Search
           method={method}
           ziShiMode={ziShiMode}
+          plate={plate}
           onPick={(d: DateParts, palace: number | null) => {
             const p = (n: number) => String(n).padStart(2, '0');
             setValue(
@@ -719,6 +750,8 @@ export default function App() {
             <p>
               置閏法:符頭超節氣九日(實差)以上,逢芒種大雪重用三元;拆補法:交節即換局,元按符頭拆定;
               旬首法:元同置閏,自符頭日甲子時起每旬(十時辰)進一局,陽順陰逆(劉伯溫/透派時盤之制)。
+              飛盤:九星各攜本宮地盤干,自值符宮按洛書宮序飛入時干宮起之宮序,陽順陰逆,中五入盤不寄;
+              門神同法飛佈,九神以勾陳、朱雀、太常代轉盤之白虎、玄武。
               時間依東八區。支援約 1900–2100 年。
             </p>
           </footer>

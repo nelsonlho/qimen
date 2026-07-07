@@ -26,6 +26,14 @@ const DOOR_BY_PALACE: Record<number, string> = {
 }
 const GODS = ['值符', '騰蛇', '太陰', '六合', '白虎', '玄武', '九地', '九天']
 
+/** 飛盤九神:以勾陳、朱雀、太常代轉盤之白虎、玄武 */
+const GODS_FLY = ['值符', '騰蛇', '太陰', '六合', '勾陳', '朱雀', '太常', '九地', '九天']
+
+/** 飛盤九星本位(含中五天禽) */
+const STAR_FLY: Record<number, string> = { ...{
+  1: '天蓬', 8: '天任', 3: '天沖', 4: '天輔', 9: '天英', 2: '天芮', 7: '天柱', 6: '天心',
+}, 5: '天禽' }
+
 /** 八門本宮 */
 export const DOOR_HOME: Record<string, number> = {
   休門: 1, 死門: 2, 傷門: 3, 杜門: 4, 開門: 6, 驚門: 7, 生門: 8, 景門: 9,
@@ -111,44 +119,70 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
   const zhiFuStar = fuPalaceRaw === 5 ? '天禽' : STAR_BY_PALACE[fuPalaceRaw]
   const zhiShiDoor = fuPalaceRaw === 5 ? DOOR_BY_PALACE[2] : DOOR_BY_PALACE[fuPalaceRaw]
 
-  // 時干(甲用旬首儀)所在地盤宮 = 值符星落宮
+  const plateStyle = options.plate ?? '轉盤'
+  const isFly = plateStyle === '飛盤'
+
+  // 時干(甲用旬首儀)所在地盤宮 = 值符星落宮;飛盤中五入盤不寄
   const hourStem = STEMS[hourGz % 10]
   const searchStem = hourStem === '甲' ? yi : hourStem
-  const fuTarget = jiGong(palaceOfStem(plate, searchStem))
+  const fuTarget = isFly
+    ? palaceOfStem(plate, searchStem)
+    : jiGong(palaceOfStem(plate, searchStem))
 
-  // --- 天盤:轉盤,值符星移至落宮,餘星隨轉 ---
-  const fuOrig = jiGong(fuPalaceRaw)
-  const shift = (CIRC.indexOf(fuTarget) - CIRC.indexOf(fuOrig) + 8) % 8
-  const skyStars: Record<number, string[]> = {}
-  const skyStems: Record<number, string[]> = {}
-  for (let i = 0; i < 8; i++) {
-    const orig = CIRC[i]
-    const dest = CIRC[(i + shift) % 8]
-    const stars = orig === 2 ? ['天芮', '天禽'] : [STAR_BY_PALACE[orig]]
-    const stems = orig === 2 ? [plate[2], plate[5]] : [plate[orig]]
-    skyStars[dest] = stars
-    skyStems[dest] = stems
-  }
-
-  // --- 值使門落宮:自原宮起,每時辰行一宮,陽順陰逆(含中五) ---
+  // 值使門落宮:自原宮起,每時辰行一宮,陽順陰逆(含中五)
   const steps = hourGz - xun // 0..9
   const landRaw = ju.dun === '陽' ? wrap9(fuPalaceRaw + steps) : wrap9(fuPalaceRaw - steps)
-  const zhiShiPalace = jiGong(landRaw)
-  const doorOrig = fuPalaceRaw === 5 ? 2 : fuPalaceRaw
-  const doorShift = (CIRC.indexOf(zhiShiPalace) - CIRC.indexOf(doorOrig) + 8) % 8
-  const doors: Record<number, string> = {}
-  for (let i = 0; i < 8; i++) {
-    const orig = CIRC[i]
-    const dest = CIRC[(i + doorShift) % 8]
-    doors[dest] = DOOR_BY_PALACE[orig]
-  }
+  const zhiShiPalace = isFly ? landRaw : jiGong(landRaw)
 
-  // --- 八神:直符加值符星落宮,陽順陰逆 ---
+  const skyStars: Record<number, string[]> = {}
+  const skyStems: Record<number, string[]> = {}
+  const doors: Record<number, string> = {}
   const gods: Record<number, string> = {}
-  const gIdx = CIRC.indexOf(fuTarget)
-  for (let i = 0; i < 8; i++) {
-    const dest = ju.dun === '陽' ? CIRC[(gIdx + i) % 8] : CIRC[(gIdx - i + 8) % 8]
-    gods[dest] = GODS[i]
+
+  if (isFly) {
+    // --- 飛盤:星攜本宮地盤干,自值符宮起按洛書宮序,飛入時干宮起之宮序,陽順陰逆 ---
+    for (let i = 0; i < 9; i++) {
+      const src = wrap9(fuPalaceRaw + i)
+      const dest = ju.dun === '陽' ? wrap9(fuTarget + i) : wrap9(fuTarget - i)
+      skyStars[dest] = [STAR_FLY[src]]
+      skyStems[dest] = [plate[src]]
+    }
+    // 八門依原宮序飛佈,值使門入落宮;中五無門,其位懸空
+    const doorOrig = fuPalaceRaw === 5 ? 2 : fuPalaceRaw
+    for (let i = 0; i < 9; i++) {
+      const src = wrap9(doorOrig + i)
+      const dest = ju.dun === '陽' ? wrap9(landRaw + i) : wrap9(landRaw - i)
+      if (src !== 5) doors[dest] = DOOR_BY_PALACE[src]
+    }
+    // 九神:值符加值符星落宮,陽順陰逆飛佈
+    for (let i = 0; i < 9; i++) {
+      const dest = ju.dun === '陽' ? wrap9(fuTarget + i) : wrap9(fuTarget - i)
+      gods[dest] = GODS_FLY[i]
+    }
+  } else {
+    // --- 轉盤:值符星移至落宮,餘星隨轉 ---
+    const fuOrig = jiGong(fuPalaceRaw)
+    const shift = (CIRC.indexOf(fuTarget) - CIRC.indexOf(fuOrig) + 8) % 8
+    for (let i = 0; i < 8; i++) {
+      const orig = CIRC[i]
+      const dest = CIRC[(i + shift) % 8]
+      skyStars[dest] = orig === 2 ? ['天芮', '天禽'] : [STAR_BY_PALACE[orig]]
+      skyStems[dest] = orig === 2 ? [plate[2], plate[5]] : [plate[orig]]
+    }
+    // 八門隨值使轉
+    const doorOrig = fuPalaceRaw === 5 ? 2 : fuPalaceRaw
+    const doorShift = (CIRC.indexOf(zhiShiPalace) - CIRC.indexOf(doorOrig) + 8) % 8
+    for (let i = 0; i < 8; i++) {
+      const orig = CIRC[i]
+      const dest = CIRC[(i + doorShift) % 8]
+      doors[dest] = DOOR_BY_PALACE[orig]
+    }
+    // 八神:直符加值符星落宮,陽順陰逆
+    const gIdx = CIRC.indexOf(fuTarget)
+    for (let i = 0; i < 8; i++) {
+      const dest = ju.dun === '陽' ? CIRC[(gIdx + i) % 8] : CIRC[(gIdx - i + 8) % 8]
+      gods[dest] = GODS[i]
+    }
   }
 
   // --- 暗干:地甲為直符——甲起旬首儀地盤宮,十干依序陽順陰逆飛佈,逢癸復歸本宮 ---
@@ -173,19 +207,25 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
   const palaces: PalaceInfo[] = []
   for (let p = 1; p <= 9; p++) {
     const branches = PALACE_BRANCHES[p]
-    const door = p === 5 ? null : doors[p] ?? null
+    const door = !isFly && p === 5 ? null : doors[p] ?? null
     palaces.push({
       // 門帶干:當局地盤中,門本宮之干
       doorDaiGan: door ? plate[DOOR_HOME[door]] : null,
       palace: p,
       name: PALACE_NAMES[p],
-      god: p === 5 ? null : gods[p] ?? null,
-      stars: p === 5 ? [] : skyStars[p] ?? [],
-      skyStems: p === 5 ? [] : skyStems[p] ?? [],
+      god: !isFly && p === 5 ? null : gods[p] ?? null,
+      stars: !isFly && p === 5 ? [] : skyStars[p] ?? [],
+      skyStems: !isFly && p === 5 ? [] : skyStems[p] ?? [],
       door,
-      earthStems: p === 5 ? [plate[5]] : p === 2 ? [plate[2], plate[5]] : [plate[p]],
-      isZhiFu: p !== 5 && p === fuTarget,
-      isZhiShi: p !== 5 && p === zhiShiPalace,
+      earthStems: isFly
+        ? [plate[p]]
+        : p === 5
+          ? [plate[5]]
+          : p === 2
+            ? [plate[2], plate[5]]
+            : [plate[p]],
+      isZhiFu: (isFly || p !== 5) && p === fuTarget,
+      isZhiShi: (isFly || p !== 5) && p === zhiShiPalace,
       kong: branches.some((b) => kw.includes(b)),
       horse: branches.includes(horse),
       anGan: anGan[p],
@@ -195,6 +235,7 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
 
   return {
     input,
+    plateStyle,
     pillars,
     lunarDate,
     ju: {

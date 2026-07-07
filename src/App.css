@@ -687,6 +687,14 @@ h1 {
   gap: 6px;
 }
 
+/* 飛盤中五:神星干門並列一行 */
+.center-fly {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: clamp(0.95rem, 3.6vw, 1.2rem);
+}
+
 .ji-note {
   font-size: 0.62rem;
   color: var(--muted);

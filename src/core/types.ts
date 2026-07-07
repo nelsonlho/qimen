@@ -6,6 +6,9 @@ export type ChaoJieStatus = '超神' | '接氣' | '正授' | '置閏' | '拆補'
 
 export type JuMethod = '置閏' | '拆補' | '旬首' | '八刻'
 
+/** 盤式:轉盤(星門神循八宮環轉)/ 飛盤(按洛書宮序飛佈,中五入盤) */
+export type PlateStyle = '轉盤' | '飛盤'
+
 export interface DateParts {
   year: number
   month: number // 1-12
@@ -21,6 +24,8 @@ export interface QimenOptions {
   leapThreshold?: number
   /** 定局法:置閏(預設)或拆補 */
   method?: JuMethod
+  /** 盤式:轉盤(預設)或飛盤 */
+  plate?: PlateStyle
 }
 
 export interface JuInfo {
@@ -65,6 +70,7 @@ export interface PalaceInfo {
 
 export interface Chart {
   input: DateParts
+  plateStyle: PlateStyle
   pillars: Pillars
   /** 當日農曆日期,如 六月十二、閏五月初三 */
   lunarDate: string

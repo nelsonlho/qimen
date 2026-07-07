@@ -25,6 +25,8 @@ export const STAR_ELEMENT: Record<string, Element> = {
 
 export const GOD_ELEMENT: Record<string, Element> = {
   值符: '土', 騰蛇: '火', 太陰: '金', 六合: '木', 白虎: '金', 玄武: '水', 九地: '土', 九天: '金',
+  // 飛盤九神所增(以勾雀常代虎武)
+  勾陳: '土', 朱雀: '火', 太常: '土',
 }
 
 const SHENG_NEXT: Record<Element, Element> = { 木: '火', 火: '土', 土: '金', 金: '水', 水: '木' }
