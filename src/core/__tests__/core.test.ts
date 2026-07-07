@@ -16,6 +16,7 @@ import { PALACE_NUMBERS } from '../numbers'
 import { matchZeGe } from '../zege'
 import { dayNumber, getTerms } from '../solarTerms'
 import { computeChart, earthPlate } from '../pan'
+import { chuanRen } from '../chuanren'
 
 describe('干支', () => {
   it('六十甲子首尾', () => {
@@ -416,5 +417,33 @@ describe('農曆日期', () => {
   it('閏月正體:2025-08-06 為閏六月十三', () => {
     const c = computeChart({ year: 2025, month: 8, day: 6, hour: 12, minute: 0 })
     expect(c.lunarDate).toBe('閏六月十三')
+  })
+})
+
+describe('遁甲穿壬', () => {
+  it('甲日晝占:貴人丑,順治順佈', () => {
+    const m = chuanRen('甲', '午')
+    expect(m['丑']).toBe('貴人')
+    expect(m['寅']).toBe('螣蛇')
+    expect(m['卯']).toBe('朱雀')
+    expect(m['午']).toBe('青龍')
+    expect(m['子']).toBe('天后')
+  })
+
+  it('甲日夜占:貴人未,逆治逆佈', () => {
+    const m = chuanRen('甲', '子')
+    expect(m['未']).toBe('貴人')
+    expect(m['午']).toBe('螣蛇')
+    expect(m['巳']).toBe('朱雀')
+    expect(m['申']).toBe('天后')
+  })
+
+  it('晝夜之界:卯時晝、酉時夜;十二將無重', () => {
+    expect(chuanRen('乙', '卯')['子']).toBe('貴人') // 晝貴子
+    expect(chuanRen('乙', '酉')['申']).toBe('貴人') // 夜貴申
+    const m = chuanRen('辛', '巳') // 晝貴午,逆治
+    expect(m['午']).toBe('貴人')
+    expect(m['巳']).toBe('螣蛇')
+    expect(new Set(Object.values(m)).size).toBe(12)
   })
 })

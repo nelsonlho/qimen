@@ -3,10 +3,14 @@ import type { CSSProperties } from 'react';
 import {
   BRANCHES,
   BRANCH_ELEMENT,
+  JIANG_LUCK,
+  JIANG_SHORT,
+  PALACE_BRANCHES,
   PALACE_NUMBERS,
   STEMS,
   STEM_ELEMENT,
   analyzeChart,
+  chuanRen,
   computeChart,
 } from './core';
 import type {
@@ -17,12 +21,21 @@ import type {
   JuMethod,
   PalaceAnalysis,
   PalaceInfo,
+  TianJiang,
 } from './core';
 import Search from './Search';
 import './App.css';
 
 // 洛書九宮版位:上南下北
 const GRID: number[] = [4, 9, 2, 3, 5, 7, 8, 1, 6];
+
+// 穿壬外環:十二支繞盤方位(上南下北左東右西),[支, 列, 行]
+const RING: [string, number, number][] = [
+  ['巳', 1, 2], ['午', 1, 3], ['未', 1, 4],
+  ['辰', 2, 1], ['卯', 3, 1], ['寅', 4, 1],
+  ['申', 2, 5], ['酉', 3, 5], ['戌', 4, 5],
+  ['丑', 5, 2], ['子', 5, 3], ['亥', 5, 4],
+];
 
 // 後天八卦水印
 const TRIGRAM: Record<number, string> = {
@@ -225,10 +238,12 @@ function DetailPanel({
   chart,
   ana,
   palace,
+  jiangMap,
 }: {
   chart: Chart;
   ana: ChartAnalysis;
   palace: number;
+  jiangMap: Record<string, TianJiang> | null;
 }) {
   const info = chart.palaces[palace - 1];
   const pa = ana.palaces[palace - 1];
@@ -297,6 +312,15 @@ function DetailPanel({
           <dt>八神</dt>
           <dd>{info.god}</dd>
         </div>
+        {jiangMap && (
+          <div>
+            <dt>天將</dt>
+            <dd>
+              {PALACE_BRANCHES[palace].map((b) => `${b}${jiangMap[b]}`).join('、')}
+              <span className="note">(穿壬:日干晝夜貴,順逆佈十二將)</span>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>九星</dt>
           <dd>
@@ -402,6 +426,7 @@ export default function App() {
   const [showAnGan, setShowAnGan] = useState(layerInit('qimen-angan'));
   const [showYinGan, setShowYinGan] = useState(layerInit('qimen-yingan'));
   const [showDaiGan, setShowDaiGan] = useState(layerInit('qimen-daigan'));
+  const [showChuanRen, setShowChuanRen] = useState(layerInit('qimen-chuanren'));
   const [view, setView] = useState<'chart' | 'search'>('chart');
 
   useEffect(() => {
@@ -415,7 +440,8 @@ export default function App() {
     localStorage.setItem('qimen-angan', showAnGan ? '1' : '0');
     localStorage.setItem('qimen-yingan', showYinGan ? '1' : '0');
     localStorage.setItem('qimen-daigan', showDaiGan ? '1' : '0');
-  }, [showAnGan, showYinGan, showDaiGan]);
+    localStorage.setItem('qimen-chuanren', showChuanRen ? '1' : '0');
+  }, [showAnGan, showYinGan, showDaiGan, showChuanRen]);
 
   const { chart, ana, error } = useMemo(() => {
     const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -430,6 +456,12 @@ export default function App() {
       return { chart: null, ana: null, error: (e as Error).message };
     }
   }, [value, ziShiMode, method]);
+
+  // 穿壬:十二天將依日干晝夜貴佈支位
+  const jiangMap =
+    chart && showChuanRen
+      ? chuanRen(chart.pillars.day[0], chart.pillars.hour[1])
+      : null;
 
   return (
     <div className="app">
@@ -541,6 +573,14 @@ export default function App() {
             />
             帶干
           </label>
+          <label className="opt check">
+            <input
+              type="checkbox"
+              checked={showChuanRen}
+              onChange={(e) => setShowChuanRen(e.target.checked)}
+            />
+            穿壬
+          </label>
         </div>
       )}
 
@@ -609,29 +649,53 @@ export default function App() {
             <span>馬星 {chart.horseBranch}</span>
           </div>
 
-          <div
-            className="board"
-            key={`${chart.pillars.day}${chart.pillars.hour}${chart.ju.dun}${chart.ju.ju}`}
-          >
-            {GRID.map((p, idx) => (
-              <PalaceCell
-                key={p}
-                order={idx}
-                info={chart.palaces[p - 1]}
-                chart={chart}
-                ana={ana.palaces[p - 1]}
-                selected={selected === p}
-                onSelect={() => setSelected(selected === p ? null : p)}
-                showAnGan={showAnGan}
-                showYinGan={showYinGan}
-                showDaiGan={showDaiGan}
-                globalGe={ana.global}
-              />
-            ))}
-          </div>
+          {(() => {
+            const board = (
+              <div
+                className="board"
+                key={`${chart.pillars.day}${chart.pillars.hour}${chart.ju.dun}${chart.ju.ju}`}
+              >
+                {GRID.map((p, idx) => (
+                  <PalaceCell
+                    key={p}
+                    order={idx}
+                    info={chart.palaces[p - 1]}
+                    chart={chart}
+                    ana={ana.palaces[p - 1]}
+                    selected={selected === p}
+                    onSelect={() => setSelected(selected === p ? null : p)}
+                    showAnGan={showAnGan}
+                    showYinGan={showYinGan}
+                    showDaiGan={showDaiGan}
+                    globalGe={ana.global}
+                  />
+                ))}
+              </div>
+            );
+            if (!jiangMap) return board;
+            // 穿壬:天將成外環,依支繞盤
+            return (
+              <div className="chuan-ring">
+                {RING.map(([b, row, col]) => (
+                  <div
+                    className={`ring-cell${col === 1 || col === 5 ? ' ring-side' : ''}`}
+                    style={{ gridRow: row, gridColumn: col }}
+                    key={b}
+                    title={`${b}・${jiangMap[b]}`}
+                  >
+                    <span className="ring-branch">{b}</span>
+                    <span className={`ring-jiang jiang-${JIANG_LUCK[jiangMap[b]]}`}>
+                      {JIANG_SHORT[jiangMap[b]]}
+                    </span>
+                  </div>
+                ))}
+                {board}
+              </div>
+            );
+          })()}
 
           {selected ? (
-            <DetailPanel chart={chart} ana={ana} palace={selected} />
+            <DetailPanel chart={chart} ana={ana} palace={selected} jiangMap={jiangMap} />
           ) : (
             <div className="hint">
               點按任一宮,觀門宮生剋、長生、格局詳解;全局之格(五不遇時、伏反吟)列於中宮

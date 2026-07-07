@@ -44,8 +44,8 @@ export interface ChartAnalysis {
   global: GeJu[]
 }
 
-/** 宮所藏支(斷析用,與 pan 一致) */
-const PALACE_BRANCHES: Record<number, string[]> = {
+/** 宮所藏支(斷析、穿壬顯示用,與 pan 一致) */
+export const PALACE_BRANCHES: Record<number, string[]> = {
   1: ['子'], 8: ['丑', '寅'], 3: ['卯'], 4: ['辰', '巳'],
   9: ['午'], 2: ['未', '申'], 7: ['酉'], 6: ['戌', '亥'],
   5: [],
