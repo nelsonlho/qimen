@@ -12,11 +12,13 @@ import {
 import type {
   Chart,
   ChartAnalysis,
+  DateParts,
   GeJu,
   JuMethod,
   PalaceAnalysis,
   PalaceInfo,
 } from './core';
+import Search from './Search';
 import './App.css';
 
 // 洛書九宮版位:上南下北
@@ -400,6 +402,7 @@ export default function App() {
   const [showAnGan, setShowAnGan] = useState(layerInit('qimen-angan'));
   const [showYinGan, setShowYinGan] = useState(layerInit('qimen-yingan'));
   const [showDaiGan, setShowDaiGan] = useState(layerInit('qimen-daigan'));
+  const [view, setView] = useState<'chart' | 'search'>('chart');
 
   useEffect(() => {
     const root = document.documentElement;
@@ -455,14 +458,39 @@ export default function App() {
         <div className="subtitle">時家轉盤</div>
       </header>
 
+      <div className="view-tabs" role="tablist" aria-label="模式">
+        {(
+          [
+            ['chart', '起局'],
+            ['search', '擇時'],
+          ] as const
+        ).map(([v, label]) => (
+          <button
+            key={v}
+            role="tab"
+            aria-selected={view === v}
+            className={view === v ? 'on' : ''}
+            onClick={() => setView(v)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="controls">
-        <input
-          type="datetime-local"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          aria-label="起局時間"
-        />
-        <button onClick={() => setValue(toInputValue(new Date()))}>此刻</button>
+        {view === 'chart' && (
+          <>
+            <input
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              aria-label="起局時間"
+            />
+            <button onClick={() => setValue(toInputValue(new Date()))}>
+              此刻
+            </button>
+          </>
+        )}
         <label className="opt">
           定局
           <select
@@ -487,36 +515,53 @@ export default function App() {
         </label>
       </div>
 
-      <div className="controls layers">
-        <label className="opt check">
-          <input
-            type="checkbox"
-            checked={showAnGan}
-            onChange={(e) => setShowAnGan(e.target.checked)}
-          />
-          暗干
-        </label>
-        <label className="opt check">
-          <input
-            type="checkbox"
-            checked={showYinGan}
-            onChange={(e) => setShowYinGan(e.target.checked)}
-          />
-          隱干
-        </label>
-        <label className="opt check">
-          <input
-            type="checkbox"
-            checked={showDaiGan}
-            onChange={(e) => setShowDaiGan(e.target.checked)}
-          />
-          帶干
-        </label>
-      </div>
+      {view === 'chart' && (
+        <div className="controls layers">
+          <label className="opt check">
+            <input
+              type="checkbox"
+              checked={showAnGan}
+              onChange={(e) => setShowAnGan(e.target.checked)}
+            />
+            暗干
+          </label>
+          <label className="opt check">
+            <input
+              type="checkbox"
+              checked={showYinGan}
+              onChange={(e) => setShowYinGan(e.target.checked)}
+            />
+            隱干
+          </label>
+          <label className="opt check">
+            <input
+              type="checkbox"
+              checked={showDaiGan}
+              onChange={(e) => setShowDaiGan(e.target.checked)}
+            />
+            帶干
+          </label>
+        </div>
+      )}
 
-      {error && <div className="error">{error}</div>}
+      {view === 'search' && (
+        <Search
+          method={method}
+          ziShiMode={ziShiMode}
+          onPick={(d: DateParts, palace: number) => {
+            const p = (n: number) => String(n).padStart(2, '0');
+            setValue(
+              `${d.year}-${p(d.month)}-${p(d.day)}T${p(d.hour)}:${p(d.minute)}`,
+            );
+            setSelected(palace);
+            setView('chart');
+          }}
+        />
+      )}
 
-      {chart && ana && (
+      {view === 'chart' && error && <div className="error">{error}</div>}
+
+      {view === 'chart' && chart && ana && (
         <>
           {/* 古式直書:年柱居右,自右向左讀 */}
           <div className="pillars">

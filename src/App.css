@@ -736,6 +736,181 @@ footer {
   opacity: 0.85;
 }
 
+/* ============ 起局/擇時 切換 ============ */
+
+.view-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 4px 0 10px;
+}
+
+.view-tabs button {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 4px 22px;
+  border: 1px solid var(--line);
+  background: var(--cell);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.view-tabs button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.view-tabs button:last-child {
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+}
+
+.view-tabs button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.view-tabs button.on + button {
+  border-left: none;
+}
+
+/* ============ 擇時反查 ============ */
+
+.search-panel {
+  margin-top: 4px;
+}
+
+.ge-groups {
+  background: var(--cell);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-soft);
+}
+
+.ge-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ge-group + .ge-group {
+  border-top: 1px dashed var(--line-soft);
+}
+
+.ge-group-label {
+  flex: 0 0 4.4em;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+.ge-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.ge-chip {
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 2px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--cell-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ge-chip:hover {
+  border-color: var(--gold);
+}
+
+.ge-chip.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.search-opts {
+  margin-top: 10px;
+}
+
+.search-go {
+  font-weight: 600;
+}
+
+.search-go:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.search-results {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.day-group {
+  background: var(--cell);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+.day-label {
+  font-size: 0.78rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper-deep);
+}
+
+.hit-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  padding: 7px 12px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.hit-row + .hit-row {
+  border-top: 1px dashed var(--line-soft);
+}
+
+.hit-row:hover {
+  background: var(--accent2-soft);
+}
+
+.hit-time {
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  color: var(--ink-strong);
+}
+
+.hit-ke {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.hit-matches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 0;
+}
+
 /* ============ 手機 ============ */
 
 @media (max-width: 430px) {
