@@ -418,6 +418,16 @@ h1 {
   letter-spacing: 0.1em;
 }
 
+/* 鳴法地盤神:天盤神旁小字 */
+.egod {
+  font-style: normal;
+  font-size: max(0.66em, 13px);
+  vertical-align: super;
+  margin-left: 2px;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
 .star {
   color: var(--accent2);
 }

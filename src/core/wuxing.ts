@@ -17,6 +17,7 @@ export const PALACE_ELEMENT: Record<number, Element> = {
 
 export const DOOR_ELEMENT: Record<string, Element> = {
   休門: '水', 生門: '土', 傷門: '木', 杜門: '木', 景門: '火', 死門: '土', 驚門: '金', 開門: '金',
+  中門: '土', // 鳴法九門之增,居中五
 }
 
 export const STAR_ELEMENT: Record<string, Element> = {

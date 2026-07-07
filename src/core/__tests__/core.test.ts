@@ -502,3 +502,68 @@ describe('飛盤', () => {
     expect(chart.palaces[1].earthStems.length).toBe(2) // 坤二寄中五干
   })
 })
+
+describe('鳴法', () => {
+  const w9 = (n: number) => ((n - 1) % 9 + 9) % 9 + 1
+  const YANG = ['值符', '騰蛇', '太陰', '六合', '勾陳', '太常', '朱雀', '九地', '九天']
+  const YIN = ['值符', '騰蛇', '太陰', '六合', '白虎', '太常', '玄武', '九地', '九天']
+  const DOOR_MING: Record<number, string> = {
+    1: '休門', 2: '死門', 3: '傷門', 4: '杜門', 5: '中門', 6: '開門', 7: '驚門', 8: '生門', 9: '景門',
+  }
+
+  function checkMing(input: { year: number; month: number; day: number; hour: number; minute: number }) {
+    const chart = computeChart(input, { plate: '鳴法' })
+    expect(chart.plateStyle).toBe('鳴法')
+    // 九宮各一星一干,九門俱全含中門
+    expect(chart.palaces.every((p) => p.stars.length === 1 && p.skyStems.length === 1)).toBe(true)
+    const doors = chart.palaces.map((p) => p.door)
+    expect(new Set(doors).size).toBe(9)
+    expect(doors).toContain('中門')
+    // 星、儀、門恆順飛:src 自值符宮升序,dest 升序(不分陰陽遁)
+    const plateMap: Record<number, string> = {}
+    for (const p of chart.palaces) plateMap[p.palace] = p.earthStems[0]
+    const fuRaw = chart.palaces.find((p) => plateMap[p.palace] === chart.xunYi)!.palace
+    const fuT = chart.palaces.find((p) => p.isZhiFu)!.palace
+    const shiT = chart.palaces.find((p) => p.isZhiShi)!.palace
+    for (let i = 0; i < 9; i++) {
+      const src = w9(fuRaw + i)
+      expect(chart.palaces[w9(fuT + i) - 1].skyStems[0]).toBe(plateMap[src])
+      expect(chart.palaces[w9(shiT + i) - 1].door).toBe(DOOR_MING[src])
+    }
+    // 九神兩套:天盤自值符落宮、地盤自值符原宮,陽順陰逆
+    const seq = chart.ju.dun === '陽' ? YANG : YIN
+    const dir = chart.ju.dun === '陽' ? 1 : -1
+    for (let i = 0; i < 9; i++) {
+      expect(chart.palaces[w9(fuT + dir * i) - 1].god).toBe(seq[i])
+      expect(chart.palaces[w9(fuRaw + dir * i) - 1].earthGod).toBe(seq[i])
+    }
+    return chart
+  }
+
+  it('陰遁鳴法:恆順飛,九神用虎玄逆佈', () => {
+    const chart = checkMing({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 })
+    expect(chart.ju.dun).toBe('陰')
+    expect(chart.palaces.map((p) => p.god)).toContain('白虎')
+    expect(chart.palaces.map((p) => p.god)).toContain('玄武')
+  })
+
+  it('陽遁鳴法:九神用陳雀常順佈', () => {
+    const chart = checkMing({ year: 2026, month: 1, day: 15, hour: 10, minute: 0 })
+    expect(chart.ju.dun).toBe('陽')
+    const gods = chart.palaces.map((p) => p.god)
+    expect(gods).toContain('勾陳')
+    expect(gods).toContain('朱雀')
+    expect(gods).toContain('太常')
+  })
+
+  it('轉盤/飛盤無地盤神;鳴法值符原宮地盤神為值符', () => {
+    expect(
+      computeChart({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 })
+        .palaces.every((p) => p.earthGod == null),
+    ).toBe(true)
+    expect(
+      computeChart({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 }, { plate: '飛盤' })
+        .palaces.every((p) => p.earthGod == null),
+    ).toBe(true)
+  })
+})

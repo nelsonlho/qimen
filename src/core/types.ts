@@ -6,8 +6,14 @@ export type ChaoJieStatus = '超神' | '接氣' | '正授' | '置閏' | '拆補'
 
 export type JuMethod = '置閏' | '拆補' | '旬首' | '八刻'
 
-/** 盤式:轉盤(星門神循八宮環轉)/ 飛盤(按洛書宮序飛佈,中五入盤) */
-export type PlateStyle = '轉盤' | '飛盤'
+/**
+ * 盤式:
+ * 轉盤 — 星門神循八宮環轉,中五寄坤二;
+ * 飛盤 — 按洛書宮序飛佈,陽順陰逆,中五入盤;
+ * 鳴法 — 《奇門遁甲鳴法》飛盤正脈:星、儀、門恆順飛,九門補中門,
+ *        九神陽順(符蛇陰合陳常雀地天)陰逆(符蛇陰合虎常玄地天),天地兩套
+ */
+export type PlateStyle = '轉盤' | '飛盤' | '鳴法'
 
 export interface DateParts {
   year: number
@@ -54,7 +60,9 @@ export interface Pillars {
 export interface PalaceInfo {
   palace: number // 宮數 1-9(洛書)
   name: string // 坎一宮 等
-  god: string | null // 八神
+  god: string | null // 八神(天盤)
+  /** 鳴法:地盤九神(一明一暗兩套之暗者);他式無 */
+  earthGod?: string | null
   stars: string[] // 天盤星(芮禽同宮則二)
   skyStems: string[] // 天盤干
   door: string | null // 八門

@@ -148,8 +148,8 @@ function PalaceCell({
   );
   const watermark = <span className="trigram">{TRIGRAM[info.palace]}</span>;
   if (info.palace === 5) {
-    // 中宮:轉盤寄坤二僅列局訊;飛盤中五入盤,星干門神並列
-    const isFly = chart.plateStyle === '飛盤';
+    // 中宮:轉盤寄坤二僅列局訊;飛盤/鳴法中五入盤,星干門神並列
+    const isFly = chart.plateStyle !== '轉盤';
     return (
       <div
         className={`palace center${selected ? ' selected' : ''}${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}`}
@@ -170,7 +170,10 @@ function PalaceCell({
         </div>
         {isFly && (
           <div className="center-fly">
-            <span className="god">{info.god?.slice(1)}</span>
+            <span className="god">
+              {info.god?.slice(1)}
+              {info.earthGod && <i className="egod">{info.earthGod.slice(1)}</i>}
+            </span>
             <span className="star">
               {info.stars.map((s) => s.slice(1)).join('')}
               {info.isZhiFu && <span className="tag tag-fu">符</span>}
@@ -212,8 +215,11 @@ function PalaceCell({
     >
       {watermark}
       <div className="row god-row">
-        {/* 八神取次字:符蛇陰合虎武地天 */}
-        <span className="god">{info.god?.slice(1)}</span>
+        {/* 八神取次字:符蛇陰合虎武地天;鳴法地盤神小字相隨 */}
+        <span className="god">
+          {info.god?.slice(1)}
+          {info.earthGod && <i className="egod">{info.earthGod.slice(1)}</i>}
+        </span>
         <span className="marks">
           {ana.geju.map((g, i) => (
             <span className={`dot dot-${g.luck}`} key={i} title={g.name} />
@@ -338,7 +344,12 @@ function DetailPanel({
       <dl>
         <div>
           <dt>八神</dt>
-          <dd>{info.god}</dd>
+          <dd>
+            {info.god}
+            {info.earthGod && (
+              <span className="note">・地盤{info.earthGod}(鳴法暗套)</span>
+            )}
+          </dd>
         </div>
         {jiangMap && (
           <div>
@@ -442,7 +453,7 @@ export default function App() {
   const [method, setMethod] = useState<JuMethod>('置閏');
   const [plate, setPlate] = useState<PlateStyle>(() => {
     const q = new URLSearchParams(location.search).get('plate');
-    return q === '飛盤' || q === '轉盤' ? q : '轉盤';
+    return q === '飛盤' || q === '轉盤' || q === '鳴法' ? q : '轉盤';
   });
   const [selected, setSelected] = useState<number | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
@@ -563,6 +574,7 @@ export default function App() {
           >
             <option value="轉盤">轉盤</option>
             <option value="飛盤">飛盤</option>
+            <option value="鳴法">鳴法</option>
           </select>
         </label>
         <label className="opt">
@@ -752,6 +764,9 @@ export default function App() {
               旬首法:元同置閏,自符頭日甲子時起每旬(十時辰)進一局,陽順陰逆(劉伯溫/透派時盤之制)。
               飛盤:九星各攜本宮地盤干,自值符宮按洛書宮序飛入時干宮起之宮序,陽順陰逆,中五入盤不寄;
               門神同法飛佈,九神以勾陳、朱雀、太常代轉盤之白虎、玄武。
+              鳴法(《奇門遁甲鳴法》):星、儀、門恆順飛不分遁,九門補中門,
+              九神陽遁順飛(符蛇陰合陳常雀地天)、陰遁逆飛(符蛇陰合虎常玄地天),
+              天盤起值符落宮、地盤起值符原宮,一明一暗兩套。
               時間依東八區。支援約 1900–2100 年。
             </p>
           </footer>
