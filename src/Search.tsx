@@ -83,6 +83,7 @@ const SI_JI: Stage[] = ['長生', '冠帶', '臨官', '帝旺'];
 interface WangRow {
   palace: number;
   accept: '旺相' | '旺' | '相';
+  req: boolean; // 必者硬濾,宜者計分
 }
 
 interface YongRow {
@@ -90,12 +91,27 @@ interface YongRow {
   relation: YongRelation;
   target: string; // 柱:day… 或 命
   year: number; // 年命之生年
+  req: boolean;
 }
 
 interface CsRow {
   stem: string; // 柱:day… 或 命
   stage: string; // 長生…養,或 '四吉'
   year: number;
+  req: boolean;
+}
+
+/** 必/宜切換鈕 */
+function ReqToggle({ req, onChange }: { req: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      className={`req-toggle${req ? ' req' : ''}`}
+      title={req ? '必:非有不可,無此則不列' : '宜:有則更佳,合多者列前'}
+      onClick={() => onChange(!req)}
+    >
+      {req ? '必' : '宜'}
+    </button>
+  );
 }
 
 function pad(n: number): string {
@@ -258,15 +274,18 @@ export default function Search({
       wang: wangRows.map((w) => ({
         palace: w.palace,
         accept: w.accept === '旺相' ? (['旺', '相'] as const) : [w.accept],
+        required: w.req || undefined,
       })),
       yong: yongRows.map((y) => ({
         yong: decodeYong(y.yong, y.year),
         relation: y.relation,
         target: decodeYong(y.target, y.year),
+        required: y.req || undefined,
       })),
       changsheng: csRows.map((c) => ({
         stem: decodeStemRef(c.stem, c.year),
         stages: c.stage === '四吉' ? SI_JI : [c.stage as Stage],
+        required: c.req || undefined,
       })),
     };
     setResults(
@@ -285,12 +304,15 @@ export default function Search({
     );
   };
 
-  // 最佳三時:命中數多者先,同數取早
+  // 最佳三時:宜分高者先,次命中數,同者取早
   const best = useMemo(() => {
     if (!results || results.length === 0) return [];
     return results
       .map((h, i) => ({ h, i }))
-      .sort((a, b) => b.h.matches.length - a.h.matches.length || a.i - b.i)
+      .sort(
+        (a, b) =>
+          b.h.score - a.h.score || b.h.matches.length - a.h.matches.length || a.i - b.i,
+      )
       .slice(0, 3)
       .map((x) => x.h);
   }, [results]);
@@ -440,10 +462,22 @@ export default function Search({
 
           {/* ── 宮旺・用神・長生・避忌 ── */}
           <div className="cond-card">
-            <div className="cond-title">加持條件(全須成立)</div>
+            <div className="cond-title cond-title-row">
+              加持條件
+              <span className="cond-note">必=非有不可;宜=有則更佳,合多者列前</span>
+            </div>
             <div className="cond-rows">
               {wangRows.map((w, i) => (
                 <div className="cond-row" key={`w${i}`}>
+                  <ReqToggle
+                    req={w.req}
+                    onChange={(v) => {
+                      const rows = [...wangRows];
+                      rows[i] = { ...w, req: v };
+                      setWangRows(rows);
+                      reset();
+                    }}
+                  />
                   <strong>宮旺</strong>
                   <select
                     value={w.palace}
@@ -491,6 +525,15 @@ export default function Search({
               ))}
               {yongRows.map((y, i) => (
                 <div className="cond-row" key={`y${i}`}>
+                  <ReqToggle
+                    req={y.req}
+                    onChange={(v) => {
+                      const rows = [...yongRows];
+                      rows[i] = { ...y, req: v };
+                      setYongRows(rows);
+                      reset();
+                    }}
+                  />
                   <strong>用神</strong>
                   <select
                     value={y.yong}
@@ -524,6 +567,7 @@ export default function Search({
                     <option value="比和">比和</option>
                     <option value="剋">剋</option>
                     <option value="同宮">同宮</option>
+                    <option value="生比和同宮">生/比和/同宮</option>
                   </select>
                   <select
                     value={y.target}
@@ -577,6 +621,15 @@ export default function Search({
               ))}
               {csRows.map((c, i) => (
                 <div className="cond-row" key={`c${i}`}>
+                  <ReqToggle
+                    req={c.req}
+                    onChange={(v) => {
+                      const rows = [...csRows];
+                      rows[i] = { ...c, req: v };
+                      setCsRows(rows);
+                      reset();
+                    }}
+                  />
                   <strong>長生</strong>
                   <select
                     value={c.stem}
@@ -645,7 +698,7 @@ export default function Search({
               <div className="cond-add">
                 <button
                   onClick={() => {
-                    setWangRows([...wangRows, { palace: 1, accept: '旺相' }]);
+                    setWangRows([...wangRows, { palace: 1, accept: '旺相', req: false }]);
                     reset();
                   }}
                 >
@@ -655,7 +708,7 @@ export default function Search({
                   onClick={() => {
                     setYongRows([
                       ...yongRows,
-                      { yong: '門:開門', relation: '生', target: '柱:day', year: 1990 },
+                      { yong: '門:開門', relation: '生', target: '柱:day', year: 1990, req: false },
                     ]);
                     reset();
                   }}
@@ -664,7 +717,7 @@ export default function Search({
                 </button>
                 <button
                   onClick={() => {
-                    setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990 }]);
+                    setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990, req: false }]);
                     reset();
                   }}
                 >
@@ -703,7 +756,14 @@ export default function Search({
           <div className="best-cards">
             {best.map((h, i) => (
               <button className="best-card" key={i} onClick={() => pick(h)}>
-                <span className="best-rank">{['最佳', '次吉', '又次'][i]}</span>
+                <span className="best-rank">
+                  {['最佳', '次吉', '又次'][i]}
+                  {h.optTotal > 0 && (
+                    <i className="score-badge">
+                      宜{h.score}/{h.optTotal}
+                    </i>
+                  )}
+                </span>
                 <span className="best-time">
                   {h.hourGZ}時 <i>{hourRange(h.hourGZ[1])}</i>
                   {h.ke != null && <i className="hit-ke">第{h.ke}刻</i>}
@@ -724,6 +784,11 @@ export default function Search({
                       <span className="hit-time">
                         {h.hourGZ}時 {hourRange(h.hourGZ[1])}
                         {h.ke != null && <i className="hit-ke">第{h.ke}刻</i>}
+                        {h.optTotal > 0 && (
+                          <i className="score-badge">
+                            宜{h.score}/{h.optTotal}
+                          </i>
+                        )}
                       </span>
                       <span className="hit-matches">{hitChips(h)}</span>
                     </button>

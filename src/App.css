@@ -817,6 +817,47 @@ footer {
   font-size: 0.72rem;
 }
 
+.cond-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cond-note {
+  font-size: 0.66rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.req-toggle {
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 3px 7px;
+  border: 1px solid var(--accent2);
+  border-radius: 999px;
+  background: var(--accent2-soft);
+  color: var(--accent2);
+  cursor: pointer;
+}
+
+.req-toggle.req {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.score-badge {
+  font-style: normal;
+  font-size: 0.66rem;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent2-soft);
+  color: var(--accent2);
+  letter-spacing: 0.05em;
+}
+
 .best-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

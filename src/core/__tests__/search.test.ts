@@ -322,9 +322,83 @@ describe('擇時反查', () => {
     expect(missHits.some((h) => h.hourGZ === chart.pillars.hour)).toBe(false)
   })
 
+  it('必宜:必者硬濾,宜者計分不淘汰', () => {
+    const alwaysTrue = { yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } } as const
+    const alwaysFalse = { yong: { kind: '命', stem: '甲' }, relation: '剋', target: { kind: '命', stem: '庚' } } as const
+    // 必之假 → 全棄
+    expect(
+      searchGe({ yong: [{ ...alwaysFalse, required: true }, alwaysTrue] }, START, endAfter(1)),
+    ).toEqual([])
+    // 宜真宜假並列 → 恆中,僅列成立之條,分 1/2
+    const hits = searchGe({ yong: [alwaysTrue, alwaysFalse] }, START, endAfter(1))
+    expect(hits.length).toBeGreaterThanOrEqual(12)
+    for (const h of hits) {
+      expect(h.score).toBe(1)
+      expect(h.optTotal).toBe(2)
+      expect(h.matches.some((m) => m.label === '年命庚剋年命甲')).toBe(true)
+      expect(h.matches.some((m) => m.label === '年命甲剋年命庚')).toBe(false)
+    }
+    // 必真宜假 → 恆中,分 0/1,必者列於命中
+    const h2 = searchGe(
+      { yong: [{ ...alwaysTrue, required: true }, alwaysFalse] },
+      START,
+      endAfter(1),
+    )
+    expect(h2.length).toBeGreaterThanOrEqual(12)
+    for (const h of h2) {
+      expect(h.score).toBe(0)
+      expect(h.optTotal).toBe(1)
+      expect(h.matches.some((m) => m.label === '年命庚剋年命甲')).toBe(true)
+    }
+    // 唯宜且全不中 → 不列
+    expect(searchGe({ yong: [alwaysFalse] }, START, endAfter(1))).toEqual([])
+  })
+
+  it('宜不弛格局之關:格仍須中', () => {
+    const alwaysTrue = { yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } } as const
+    const geOnly = searchGe({ ge: [{ name: '三奇得使' }] }, START, endAfter(3))
+    const withCond = searchGe({ ge: [{ name: '三奇得使' }], yong: [alwaysTrue] }, START, endAfter(3))
+    expect(withCond.length).toBe(geOnly.length)
+    const geKeys = new Set(geOnly.map((h) => `${h.date.day}|${h.hourGZ}`))
+    for (const h of withCond) {
+      expect(geKeys.has(`${h.date.day}|${h.hourGZ}`)).toBe(true)
+    }
+  })
+
+  it('生/比和/同宮(有情即可):等於三式之併,標籤明示所中', () => {
+    const days = 5
+    const mk = (relation: '生' | '比和' | '同宮' | '生比和同宮') =>
+      searchGe(
+        {
+          yong: [
+            {
+              yong: { kind: '門', name: '開門' },
+              relation,
+              target: { kind: '柱', pillar: 'day' },
+              required: true,
+            },
+          ],
+        },
+        START,
+        endAfter(days),
+      )
+    const union = new Set(
+      [...mk('生'), ...mk('比和'), ...mk('同宮')].map((h) => `${h.date.day}|${h.hourGZ}`),
+    )
+    const combo = mk('生比和同宮')
+    expect(combo.length).toBe(union.size)
+    for (const h of combo) {
+      expect(union.has(`${h.date.day}|${h.hourGZ}`)).toBe(true)
+      const m = h.matches.find((x) => x.kind === '用')!
+      expect(
+        /開門(生|比和)日干(且同宮)?$|開門與日干同宮$/.test(m.label),
+      ).toBe(true)
+    }
+  })
+
   it('複合:格 AND 用神,結果為交集', () => {
     const geOnly = searchGe({ ge: [{ name: '三奇得使' }] }, START, endAfter(5))
-    const yong = { yong: { kind: '門', name: '生門' }, target: { kind: '柱', pillar: 'hour' } } as const
+    const yong = { yong: { kind: '門', name: '生門' }, target: { kind: '柱', pillar: 'hour' }, required: true } as const
     const both = searchGe({ ge: [{ name: '三奇得使' }], yong: [yong] }, START, endAfter(5))
     expect(both.length).toBeLessThanOrEqual(geOnly.length)
     const geKeys = new Set(geOnly.map((h) => `${h.date.day}|${h.hourGZ}`))

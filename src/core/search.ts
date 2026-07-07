@@ -1,7 +1,7 @@
 // 擇時反查:選定條件與日期範圍,掃描逐時辰之盤,列出命中時刻
 // 純消費者 — 判定邏輯全在 analysis/zege/keying/wuxing,此處不重複任何規則
 
-import { analyzeChart } from './analysis'
+import { analyzeChart, type ChartAnalysis } from './analysis'
 import { computeChart } from './pan'
 import { ZE_GE } from './zege'
 import { KE_YING, type Luck } from './keying'
@@ -86,6 +86,8 @@ export interface GeCond {
 export interface WangCond {
   palace: number
   accept: ('旺' | '相')[]
+  /** 必者硬濾,宜者計分;缺省宜 */
+  required?: boolean
 }
 
 /**
@@ -106,8 +108,11 @@ export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: 
 /** @deprecated 舊名,同 StemRef */
 export type ShengTarget = StemRef
 
-/** 用神與干之關係:五行生/剋/比和,或同宮(兩側可換,故無被生被剋) */
-export type YongRelation = '生' | '比和' | '剋' | '同宮'
+/**
+ * 用神與干之關係:五行生/剋/比和,同宮,或「生比和同宮」(三者任一,有情即可)。
+ * 兩側可換,故無被生被剋。
+ */
+export type YongRelation = '生' | '比和' | '剋' | '同宮' | '生比和同宮'
 
 /** 用神條件:兩側皆可任取用神,互為生剋比和同宮 */
 export interface YongCond {
@@ -115,16 +120,22 @@ export interface YongCond {
   target: YongShen
   /** 缺省為「生」 */
   relation?: YongRelation
+  /** 必者硬濾,宜者計分;缺省宜 */
+  required?: boolean
 }
 
 /** 十二長生條件:某干(天盤落宮之支)處某長生階段,任一落宮任一支合即中 */
 export interface ChangShengCond {
   stem: StemRef
   stages: Stage[]
+  /** 必者硬濾,宜者計分;缺省宜 */
+  required?: boolean
 }
 
 /**
- * 查詢:ge 列擇一即可(任一命中即列),wang/yong/changsheng 全須成立。
+ * 查詢:ge 列擇一即可(任一命中即列)。
+ * wang/yong/changsheng 各為一單元:required 者全須成立(硬濾);
+ * 餘者計分不淘汰 — 唯全查詢無格無必時,至少須中一宜方列。
  * 皆空 → 空結果。
  */
 export interface SearchQuery {
@@ -160,6 +171,10 @@ export interface SearchHit {
   /** 八刻法之刻序 */
   ke?: number
   matches: SearchMatch[]
+  /** 所中「宜」條之數 */
+  score: number
+  /** 「宜」條總數 */
+  optTotal: number
 }
 
 export interface SearchOptions extends QimenOptions {
@@ -285,16 +300,84 @@ export function searchGe(
     if (key === lastKey) continue
     lastKey = key
 
-    const matches = evalChart(query, chart, avoid)
-    if (matches) {
-      hits.push({ date: parts, hourGZ: chart.pillars.hour, ke: chart.ju.ke, matches })
+    const r = evalChart(query, chart, avoid)
+    if (r) {
+      hits.push({ date: parts, hourGZ: chart.pillars.hour, ke: chart.ju.ke, ...r })
     }
   }
   return hits
 }
 
-/** 單盤判定:滿足則回傳命中列表,否則 null */
-function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): SearchMatch[] | null {
+/** 宮旺單元 */
+function evalWang(w: WangCond, chart: Chart, seasonElem: Element): SearchMatch | null {
+  const st = seasonStrength(PALACE_ELEMENT[w.palace], seasonElem)
+  if (!(w.accept as string[]).includes(st)) return null
+  const name = chart.palaces[w.palace - 1].name
+  return { kind: '旺', label: `${name}${st}`, palace: w.palace, palaceName: name }
+}
+
+/** 用神單元 */
+function evalYong(y: YongCond, chart: Chart): SearchMatch | null {
+  const relation = y.relation ?? '生'
+  const yl = yongLabel(y.yong)
+  const tl = yongLabel(y.target)
+  const commonPalaces = () => {
+    const bp = yongPalaces(y.target, chart)
+    return yongPalaces(y.yong, chart).filter((p) => bp.includes(p))
+  }
+  if (relation === '同宮') {
+    const common = commonPalaces()
+    if (common.length === 0) return null
+    const name = chart.palaces[common[0] - 1].name
+    return { kind: '用', label: `${yl}與${tl}同宮`, palace: common[0], palaceName: name }
+  }
+  if (relation === '生比和同宮') {
+    // 有情即可:生、比和(二者互斥)、同宮,任一即中;標籤明示所中者
+    const a = yongElement(y.yong, chart)
+    const b = yongElement(y.target, chart)
+    const rel = sheng(a, b) ? '生' : a === b ? '比和' : null
+    const common = commonPalaces()
+    if (!rel && common.length === 0) return null
+    const at =
+      common.length > 0
+        ? { palace: common[0], palaceName: chart.palaces[common[0] - 1].name }
+        : {}
+    const label = rel
+      ? common.length > 0
+        ? `${yl}${rel}${tl}且同宮`
+        : `${yl}${rel}${tl}`
+      : `${yl}與${tl}同宮`
+    return { kind: '用', label, ...at }
+  }
+  const a = yongElement(y.yong, chart)
+  const b = yongElement(y.target, chart)
+  const ok = relation === '生' ? sheng(a, b) : relation === '剋' ? ke(a, b) : a === b
+  return ok ? { kind: '用', label: `${yl}${relation}${tl}` } : null
+}
+
+/** 十二長生單元(干之天盤落宮,任一落宮任一支合即中) */
+function evalChangSheng(c: ChangShengCond, chart: Chart, ana: ChartAnalysis): SearchMatch | null {
+  const stem = resolveStem(c.stem, chart)
+  for (const pa of ana.palaces) {
+    const st = pa.skyStages.find((s) => s.stem === stem)
+    if (!st) continue
+    const b = st.perBranch.find((x) => c.stages.includes(x.stage))
+    if (!b) continue
+    const name = chart.palaces[pa.palace - 1].name
+    const base = c.stem.kind === '柱' ? `${PILLAR_LABEL[c.stem.pillar]}${stem}` : `年命${stem}`
+    return { kind: '用', label: `${base}${b.stage}`, palace: pa.palace, palaceName: name }
+  }
+  return null
+}
+
+interface EvalResult {
+  matches: SearchMatch[]
+  score: number
+  optTotal: number
+}
+
+/** 單盤判定:滿足則回傳命中列表與宜分,否則 null */
+function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): EvalResult | null {
   const ana = analyzeChart(chart)
   if (avoid.wuBuYuShi && ana.global.some((g) => g.name === '五不遇時')) return null
 
@@ -328,64 +411,24 @@ function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): Searc
     if (matches.length === 0) return null
   }
 
-  // 宮旺:全須成立(月令定,故同月內恆同)
+  // 加持條件:必者硬濾,宜者計分
   const seasonElem = BRANCH_ELEMENT[chart.pillars.month[1]]
-  for (const w of query.wang ?? []) {
-    const st = seasonStrength(PALACE_ELEMENT[w.palace], seasonElem)
-    if (!(w.accept as string[]).includes(st)) return null
-    const name = chart.palaces[w.palace - 1].name
-    matches.push({ kind: '旺', label: `${name}${st}`, palace: w.palace, palaceName: name })
-  }
+  const req: (SearchMatch | null)[] = []
+  const opt: (SearchMatch | null)[] = []
+  const put = (required: boolean | undefined, m: SearchMatch | null) =>
+    (required ? req : opt).push(m)
 
-  // 用神:全須成立
-  for (const y of query.yong ?? []) {
-    const relation = y.relation ?? '生'
-    const yl = yongLabel(y.yong)
-    const tl = yongLabel(y.target)
-    if (relation === '同宮') {
-      const bp = yongPalaces(y.target, chart)
-      const common = yongPalaces(y.yong, chart).filter((p) => bp.includes(p))
-      if (common.length === 0) return null
-      const name = chart.palaces[common[0] - 1].name
-      matches.push({
-        kind: '用',
-        label: `${yl}與${tl}同宮`,
-        palace: common[0],
-        palaceName: name,
-      })
-    } else {
-      const a = yongElement(y.yong, chart)
-      const b = yongElement(y.target, chart)
-      const ok =
-        relation === '生' ? sheng(a, b) : relation === '剋' ? ke(a, b) : a === b
-      if (!ok) return null
-      matches.push({ kind: '用', label: `${yl}${relation}${tl}` })
-    }
-  }
+  for (const w of query.wang ?? []) put(w.required, evalWang(w, chart, seasonElem))
+  for (const y of query.yong ?? []) put(y.required, evalYong(y, chart))
+  for (const c of query.changsheng ?? []) put(c.required, evalChangSheng(c, chart, ana))
 
-  // 十二長生:全須成立(干之天盤落宮,任一落宮任一支合即中)
-  for (const c of query.changsheng ?? []) {
-    const stem = resolveStem(c.stem, chart)
-    let hit: { palace: number; stage: Stage } | null = null
-    for (const pa of ana.palaces) {
-      const st = pa.skyStages.find((s) => s.stem === stem)
-      if (!st) continue
-      const b = st.perBranch.find((x) => c.stages.includes(x.stage))
-      if (b) {
-        hit = { palace: pa.palace, stage: b.stage }
-        break
-      }
-    }
-    if (!hit) return null
-    const name = chart.palaces[hit.palace - 1].name
-    const base = c.stem.kind === '柱' ? `${PILLAR_LABEL[c.stem.pillar]}${stem}` : `年命${stem}`
-    matches.push({
-      kind: '用',
-      label: `${base}${hit.stage}`,
-      palace: hit.palace,
-      palaceName: name,
-    })
+  if (req.some((u) => u === null)) return null
+  const optHit = opt.filter((u): u is SearchMatch => u !== null)
+  // 無格無必而有宜者,至少中一宜方列,免全表皆時辰
+  if (!query.ge?.length && req.length === 0 && opt.length > 0 && optHit.length === 0) {
+    return null
   }
+  matches.push(...(req as SearchMatch[]), ...optHit)
 
-  return matches
+  return { matches, score: optHit.length, optTotal: opt.length }
 }
