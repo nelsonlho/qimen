@@ -32,15 +32,31 @@ const GRID: number[] = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
 // 穿壬外環:十二支繞盤方位(上南下北左東右西),[支, 列, 行]
 const RING: [string, number, number][] = [
-  ['巳', 1, 2], ['午', 1, 3], ['未', 1, 4],
-  ['辰', 2, 1], ['卯', 3, 1], ['寅', 4, 1],
-  ['申', 2, 5], ['酉', 3, 5], ['戌', 4, 5],
-  ['丑', 5, 2], ['子', 5, 3], ['亥', 5, 4],
+  ['巳', 1, 2],
+  ['午', 1, 3],
+  ['未', 1, 4],
+  ['辰', 2, 1],
+  ['卯', 3, 1],
+  ['寅', 4, 1],
+  ['申', 2, 5],
+  ['酉', 3, 5],
+  ['戌', 4, 5],
+  ['丑', 5, 2],
+  ['子', 5, 3],
+  ['亥', 5, 4],
 ];
 
 // 後天八卦水印
 const TRIGRAM: Record<number, string> = {
-  1: '☵', 2: '☷', 3: '☳', 4: '☴', 5: '☯', 6: '☰', 7: '☱', 8: '☶', 9: '☲',
+  1: '☵',
+  2: '☷',
+  3: '☳',
+  4: '☴',
+  5: '☯',
+  6: '☰',
+  7: '☱',
+  8: '☶',
+  9: '☲',
 };
 
 const STAGE_SHORT: Record<string, string> = {
@@ -87,7 +103,9 @@ function StemGroup({
                   return (
                     <span
                       key={i}
-                      className={sameYinYang ? `cs-hit e-${STEM_ELEMENT[s]}` : undefined}
+                      className={
+                        sameYinYang ? `cs-hit e-${STEM_ELEMENT[s]}` : undefined
+                      }
                     >
                       {STAGE_SHORT[b.stage]}
                     </span>
@@ -136,7 +154,9 @@ function PalaceCell({
     <div className="cell-foot">
       {showAnGan && <span className="angan">暗{info.anGan}</span>}
       {showYinGan && <span className="yingan">隱{info.yinGan}</span>}
-      {showFeiZhi && info.anZhi && <span className="feizhi">支{info.anZhi}</span>}
+      {showFeiZhi && info.anZhi && (
+        <span className="feizhi">支{info.anZhi}</span>
+      )}
       {jiangMap && PALACE_BRANCHES[info.palace].length > 0 && (
         <span className="jiang-inline">
           {PALACE_BRANCHES[info.palace].map((b) => (
@@ -175,7 +195,9 @@ function PalaceCell({
           <div className="center-fly">
             <span className="god">
               {info.god?.slice(1)}
-              {info.earthGod && <i className="egod">{info.earthGod.slice(1)}</i>}
+              {info.earthGod && (
+                <i className="egod">{info.earthGod.slice(1)}</i>
+              )}
             </span>
             <span className="star">
               {info.stars.map((s) => s.slice(1)).join('')}
@@ -250,11 +272,11 @@ function PalaceCell({
         <span className="door">
           {/* 八門取首字 */}
           {info.door?.slice(0, 1)}
-          {showDaiGan && info.doorDaiGan && (
-            <i className="daigan">{info.doorDaiGan}</i>
-          )}
           {rel && rel.key !== '義' && rel.key !== '和' && rel.key !== '伏' && (
             <i className={`rel rel-${rel.key}`}>{rel.key}</i>
+          )}
+          {showDaiGan && info.doorDaiGan && (
+            <i className="daigan">{info.doorDaiGan}</i>
           )}
           {info.isZhiShi && <span className="tag tag-shi">使</span>}
         </span>
@@ -296,8 +318,8 @@ function DetailPanel({
             <dt>定局</dt>
             <dd>
               {chart.ju.termName}
-              {chart.ju.yuanName}・{chart.ju.dun}遁{chart.ju.ju}局({chart.ju.method}法
-              {chart.ju.ke != null && `・第${chart.ju.ke}刻`}
+              {chart.ju.yuanName}・{chart.ju.dun}遁{chart.ju.ju}局(
+              {chart.ju.method}法{chart.ju.ke != null && `・第${chart.ju.ke}刻`}
               {chart.ju.method === '置閏' &&
                 `,${chart.ju.status}${chart.ju.status !== '正授' ? Math.abs(chart.ju.gapDays) + '日' : ''}`}
               )
@@ -319,7 +341,9 @@ function DetailPanel({
           </div>
         </dl>
         <div className="geju-list">
-          {ana.global.length === 0 && <div className="note">此時無全局之格</div>}
+          {ana.global.length === 0 && (
+            <div className="note">此時無全局之格</div>
+          )}
           {ana.global.map((g, i) => (
             <div className="geju" key={i}>
               <strong>{g.name}</strong>
@@ -358,7 +382,9 @@ function DetailPanel({
           <div>
             <dt>天將</dt>
             <dd>
-              {PALACE_BRANCHES[palace].map((b) => `${b}${jiangMap[b]}`).join('、')}
+              {PALACE_BRANCHES[palace]
+                .map((b) => `${b}${jiangMap[b]}`)
+                .join('、')}
               <span className="note">(穿壬:日干晝夜貴,順逆佈十二將)</span>
             </dd>
           </div>
@@ -476,7 +502,9 @@ export default function App() {
     return (localStorage.getItem('qimen-theme') as Theme) ?? 'auto';
   });
   const layerInit = (key: string) => () => {
-    const q = new URLSearchParams(location.search).get(key.replace('qimen-', ''));
+    const q = new URLSearchParams(location.search).get(
+      key.replace('qimen-', ''),
+    );
     if (q === '1' || q === '0') return q === '1';
     return localStorage.getItem(key) === '1';
   };
@@ -767,7 +795,9 @@ export default function App() {
                     title={`${b}・${jiangMap[b]}`}
                   >
                     <span className="ring-branch">{b}</span>
-                    <span className={`ring-jiang jiang-${JIANG_LUCK[jiangMap[b]]}`}>
+                    <span
+                      className={`ring-jiang jiang-${JIANG_LUCK[jiangMap[b]]}`}
+                    >
                       {JIANG_SHORT[jiangMap[b]]}
                     </span>
                   </div>
@@ -778,7 +808,12 @@ export default function App() {
           })()}
 
           {selected ? (
-            <DetailPanel chart={chart} ana={ana} palace={selected} jiangMap={jiangMap} />
+            <DetailPanel
+              chart={chart}
+              ana={ana}
+              palace={selected}
+              jiangMap={jiangMap}
+            />
           ) : (
             <div className="hint">
               點按任一宮,觀門宮生剋、長生、格局詳解;全局之格(五不遇時、伏反吟)列於中宮
@@ -794,8 +829,8 @@ export default function App() {
               鳴法(《奇門遁甲鳴法》):星、儀、門恆順飛不分遁,九門補中門,
               九神陽遁順飛(符蛇陰合陳常雀地天)、陰遁逆飛(符蛇陰合虎常玄地天),
               天盤起值符落宮、地盤起值符原宮,一明一暗兩套;
-              飛支自旬宮起本旬首支,十二支陽順陰逆飛佈。
-              時間依東八區。支援約 1900–2100 年。
+              飛支自旬宮起本旬首支,十二支陽順陰逆飛佈。 時間依東八區。支援約
+              1900–2100 年。
             </p>
           </footer>
         </>
