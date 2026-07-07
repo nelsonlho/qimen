@@ -544,7 +544,8 @@ export default function App() {
         </div>
       )}
 
-      {view === 'search' && (
+      {/* 常駐不卸:切回起局再返,條件與結果俱存 */}
+      <div hidden={view !== 'search'}>
         <Search
           method={method}
           ziShiMode={ziShiMode}
@@ -557,7 +558,7 @@ export default function App() {
             setView('chart');
           }}
         />
-      )}
+      </div>
 
       {view === 'chart' && error && <div className="error">{error}</div>}
 

@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react';
 import {
   BRANCHES,
+  BRANCH_ELEMENT,
   DOOR_NAMES,
   GE_CATALOG,
   GOD_NAMES,
+  INTENT_PRESETS,
+  PALACE_ELEMENT,
   PILLAR_LABEL,
   STAGES,
   STAR_NAMES,
   STEMS,
+  computeChart,
+  seasonStrength,
   searchGe,
 } from './core';
 import type {
@@ -34,6 +39,8 @@ const AVOID_ITEMS: [keyof AvoidOptions, string][] = [
   ['menPo', '避門迫'],
   ['wuBuYuShi', '避五不遇時'],
 ];
+
+const AVOID_ALL: AvoidOptions = { kong: true, jiXing: true, menPo: true, wuBuYuShi: true };
 
 /** 條件可用之八宮(中五不論門神,不列) */
 const COND_PALACES: [number, string][] = [
@@ -106,10 +113,23 @@ function hourRange(branch: string): string {
   return `${pad(start)}–${pad((start + 2) % 24)}時`;
 }
 
+/** 相對日標:今日/明日,他日空 */
+function relDay(d: DateParts): string {
+  const today = new Date();
+  const diff =
+    (new Date(d.year, d.month - 1, d.day).getTime() -
+      new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()) /
+    86400_000;
+  if (diff === 0) return '今日';
+  if (diff === 1) return '明日';
+  return '';
+}
+
 function dayLabel(hit: SearchHit): string {
   const { year, month, day } = hit.date;
   const wd = WEEKDAYS[new Date(year, month - 1, day).getDay()];
-  return `${year}年${month}月${day}日(${wd})`;
+  const rel = relDay(hit.date);
+  return `${year}年${month}月${day}日(${wd})${rel && `・${rel}`}`;
 }
 
 export default function Search({
@@ -121,6 +141,8 @@ export default function Search({
   ziShiMode: '23' | '0';
   onPick: (date: DateParts, palace: number | null) => void;
 }) {
+  const [intent, setIntent] = useState('');
+  const [showAdv, setShowAdv] = useState(false);
   // 格局:名 → 宮/門限定(0/'' = 任意)
   const [geSel, setGeSel] = useState<Map<string, { palace: number; door: string }>>(
     new Map(),
@@ -141,6 +163,20 @@ export default function Search({
     setRangeError(null);
   };
 
+  const pickIntent = (v: string) => {
+    setIntent(v);
+    if (v === '自訂') {
+      setShowAdv(true);
+    } else {
+      const preset = INTENT_PRESETS.find((p) => p.intent === v);
+      if (preset) {
+        setGeSel(new Map(preset.ge.map((n) => [n, { palace: 0, door: '' }])));
+        setAvoid(AVOID_ALL);
+      }
+    }
+    reset();
+  };
+
   const toggleGe = (name: string) => {
     setGeSel((prev) => {
       const next = new Map(prev);
@@ -148,6 +184,7 @@ export default function Search({
       else next.set(name, { palace: 0, door: '' });
       return next;
     });
+    setIntent('自訂');
     reset();
   };
 
@@ -157,6 +194,26 @@ export default function Search({
   };
 
   const condCount = geSel.size + wangRows.length + yongRows.length + csRows.length;
+
+  // 宮旺預警:月令範圍內恆不合者,搜前即示
+  const wangWarns = useMemo(() => {
+    const fm = fromDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const tm = toDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!fm || !tm || wangRows.length === 0) return wangRows.map(() => null);
+    const branches = new Set<string>();
+    const f = new Date(+fm[1], +fm[2] - 1, +fm[3], 12).getTime();
+    const t = new Date(+tm[1], +tm[2] - 1, +tm[3], 12).getTime();
+    for (let x = f; x <= t; x += 7 * 86400_000) branches.add(monthBranchAt(x));
+    branches.add(monthBranchAt(t));
+    branches.delete('');
+    return wangRows.map((w) => {
+      const ok = [...branches].some((b) => {
+        const st = seasonStrength(PALACE_ELEMENT[w.palace], BRANCH_ELEMENT[b]);
+        return w.accept === '旺相' ? st === '旺' || st === '相' : st === w.accept;
+      });
+      return ok ? null : '此範圍月令恆不合';
+    });
+  }, [wangRows, fromDate, toDate]);
 
   const run = () => {
     const fm = fromDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -223,6 +280,16 @@ export default function Search({
     );
   };
 
+  // 最佳三時:命中數多者先,同數取早
+  const best = useMemo(() => {
+    if (!results || results.length === 0) return [];
+    return results
+      .map((h, i) => ({ h, i }))
+      .sort((a, b) => b.h.matches.length - a.h.matches.length || a.i - b.i)
+      .slice(0, 3)
+      .map((x) => x.h);
+  }, [results]);
+
   // 按日分組,序不變
   const grouped = useMemo(() => {
     if (!results) return null;
@@ -236,304 +303,38 @@ export default function Search({
     return out;
   }, [results]);
 
+  const hitChips = (h: SearchHit) =>
+    h.matches.map((m, j) => (
+      <span
+        className={`chip ${m.kind === '格' ? `chip-${m.luck}` : `chip-${m.kind}`}`}
+        key={j}
+      >
+        {m.label}
+        {m.palaceName && m.kind !== '旺' ? `·${m.palaceName}` : ''}
+      </span>
+    ));
+
+  const pick = (h: SearchHit) =>
+    onPick(h.date, h.matches.find((m) => m.palace)?.palace ?? null);
+
   return (
     <div className="search-panel">
-      {/* ── 格局 ── */}
-      <div className="cond-card">
-        <div className="cond-title">格局(擇一即得)</div>
-        <div className="ge-groups">
-          {GROUPS.map((group) => (
-            <div className="ge-group" key={group}>
-              <span className="ge-group-label">{group}</span>
-              <span className="ge-chips">
-                {GE_CATALOG.filter((e) => e.group === group).map((e) => (
-                  <button
-                    key={e.name}
-                    className={`ge-chip${geSel.has(e.name) ? ' on' : ''}`}
-                    onClick={() => toggleGe(e.name)}
-                  >
-                    {e.name}
-                  </button>
-                ))}
-              </span>
-            </div>
-          ))}
-        </div>
-        {geSel.size > 0 && (
-          <div className="cond-rows">
-            {[...geSel.entries()].map(([name, q]) => (
-              <div className="cond-row" key={name}>
-                <strong>{name}</strong>
-                <label>
-                  落
-                  <select
-                    value={q.palace}
-                    onChange={(e) => setGeQual(name, { ...q, palace: +e.target.value })}
-                  >
-                    <option value={0}>任意宮</option>
-                    {COND_PALACES.map(([p, n]) => (
-                      <option value={p} key={p}>
-                        {n}宮
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  遇
-                  <select
-                    value={q.door}
-                    onChange={(e) => setGeQual(name, { ...q, door: e.target.value })}
-                  >
-                    <option value="">任意門</option>
-                    {DOOR_NAMES.map((d) => (
-                      <option value={d} key={d}>
-                        {d}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button className="cond-del" onClick={() => toggleGe(name)} aria-label="刪">
-                  ×
-                </button>
-              </div>
+      {/* ── 一行擇事 ── */}
+      <div className="controls intent-row">
+        <label className="opt">
+          我欲
+          <select value={intent} onChange={(e) => pickIntent(e.target.value)}>
+            <option value="" disabled>
+              擇事由…
+            </option>
+            {INTENT_PRESETS.map((p) => (
+              <option value={p.intent} key={p.intent}>
+                {p.intent}
+              </option>
             ))}
-          </div>
-        )}
-      </div>
-
-      {/* ── 宮旺・用神 ── */}
-      <div className="cond-card">
-        <div className="cond-title">加持條件(全須成立)</div>
-        <div className="cond-rows">
-          {wangRows.map((w, i) => (
-            <div className="cond-row" key={`w${i}`}>
-              <strong>宮旺</strong>
-              <select
-                value={w.palace}
-                onChange={(e) => {
-                  const rows = [...wangRows];
-                  rows[i] = { ...w, palace: +e.target.value };
-                  setWangRows(rows);
-                  reset();
-                }}
-              >
-                {COND_PALACES.map(([p, n]) => (
-                  <option value={p} key={p}>
-                    {n}宮
-                  </option>
-                ))}
-              </select>
-              <label>
-                於月令
-                <select
-                  value={w.accept}
-                  onChange={(e) => {
-                    const rows = [...wangRows];
-                    rows[i] = { ...w, accept: e.target.value as WangRow['accept'] };
-                    setWangRows(rows);
-                    reset();
-                  }}
-                >
-                  <option value="旺相">旺或相</option>
-                  <option value="旺">旺</option>
-                  <option value="相">相</option>
-                </select>
-              </label>
-              <button
-                className="cond-del"
-                onClick={() => {
-                  setWangRows(wangRows.filter((_, j) => j !== i));
-                  reset();
-                }}
-                aria-label="刪"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {yongRows.map((y, i) => (
-            <div className="cond-row" key={`y${i}`}>
-              <strong>用神</strong>
-              <select
-                value={y.yong}
-                onChange={(e) => {
-                  const rows = [...yongRows];
-                  rows[i] = { ...y, yong: e.target.value };
-                  setYongRows(rows);
-                  reset();
-                }}
-              >
-                {YONG_OPTIONS.map((g) => (
-                  <optgroup label={g.group} key={g.group}>
-                    {g.items.map(([v, label]) => (
-                      <option value={v} key={v}>
-                        {label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              <select
-                value={y.relation}
-                onChange={(e) => {
-                  const rows = [...yongRows];
-                  rows[i] = { ...y, relation: e.target.value as YongRelation };
-                  setYongRows(rows);
-                  reset();
-                }}
-              >
-                <option value="生">生</option>
-                <option value="比和">比和</option>
-                <option value="同宮">同宮(天盤)</option>
-              </select>
-              <select
-                value={y.target}
-                onChange={(e) => {
-                  const rows = [...yongRows];
-                  rows[i] = { ...y, target: e.target.value };
-                  setYongRows(rows);
-                  reset();
-                }}
-              >
-                {PILLAR_KEYS.map((p) => (
-                  <option value={`柱:${p}`} key={p}>
-                    盤之{PILLAR_LABEL[p]}
-                  </option>
-                ))}
-                <option value="命">用家年命</option>
-              </select>
-              {y.target === '命' && (
-                <label>
-                  生年
-                  <input
-                    type="number"
-                    className="year-input"
-                    value={y.year}
-                    min={1900}
-                    max={2100}
-                    onChange={(e) => {
-                      const rows = [...yongRows];
-                      rows[i] = { ...y, year: +e.target.value };
-                      setYongRows(rows);
-                      reset();
-                    }}
-                  />
-                  <span className="year-stem">{yearStem(y.year)}年</span>
-                </label>
-              )}
-              <button
-                className="cond-del"
-                onClick={() => {
-                  setYongRows(yongRows.filter((_, j) => j !== i));
-                  reset();
-                }}
-                aria-label="刪"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {csRows.map((c, i) => (
-            <div className="cond-row" key={`c${i}`}>
-              <strong>長生</strong>
-              <select
-                value={c.stem}
-                onChange={(e) => {
-                  const rows = [...csRows];
-                  rows[i] = { ...c, stem: e.target.value };
-                  setCsRows(rows);
-                  reset();
-                }}
-              >
-                {PILLAR_KEYS.map((p) => (
-                  <option value={`柱:${p}`} key={p}>
-                    盤之{PILLAR_LABEL[p]}
-                  </option>
-                ))}
-                <option value="命">用家年命</option>
-              </select>
-              處
-              <select
-                value={c.stage}
-                onChange={(e) => {
-                  const rows = [...csRows];
-                  rows[i] = { ...c, stage: e.target.value };
-                  setCsRows(rows);
-                  reset();
-                }}
-              >
-                <option value="四吉">四吉(生帶祿旺)</option>
-                {STAGES.map((s) => (
-                  <option value={s} key={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-              {c.stem === '命' && (
-                <label>
-                  生年
-                  <input
-                    type="number"
-                    className="year-input"
-                    value={c.year}
-                    min={1900}
-                    max={2100}
-                    onChange={(e) => {
-                      const rows = [...csRows];
-                      rows[i] = { ...c, year: +e.target.value };
-                      setCsRows(rows);
-                      reset();
-                    }}
-                  />
-                  <span className="year-stem">{yearStem(c.year)}年</span>
-                </label>
-              )}
-              <button
-                className="cond-del"
-                onClick={() => {
-                  setCsRows(csRows.filter((_, j) => j !== i));
-                  reset();
-                }}
-                aria-label="刪"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <div className="cond-add">
-            <button
-              onClick={() => {
-                setWangRows([...wangRows, { palace: 1, accept: '旺相' }]);
-                reset();
-              }}
-            >
-              +宮旺
-            </button>
-            <button
-              onClick={() => {
-                setYongRows([
-                  ...yongRows,
-                  { yong: '門:開門', relation: '生', target: '柱:day', year: 1990 },
-                ]);
-                reset();
-              }}
-            >
-              +用神
-            </button>
-            <button
-              onClick={() => {
-                setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990 }]);
-                reset();
-              }}
-            >
-              +長生
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 範圍・避忌・搜尋 ── */}
-      <div className="controls search-opts">
+            <option value="自訂">自訂條件</option>
+          </select>
+        </label>
         <label className="opt">
           自
           <input
@@ -556,20 +357,331 @@ export default function Search({
             }}
           />
         </label>
-        {AVOID_ITEMS.map(([key, label]) => (
-          <label className="opt check" key={key}>
-            <input
-              type="checkbox"
-              checked={!!avoid[key]}
-              onChange={(e) => setAvoid({ ...avoid, [key]: e.target.checked })}
-            />
-            {label}
-          </label>
-        ))}
         <button className="search-go" onClick={run} disabled={condCount === 0}>
-          搜尋
+          求吉時
         </button>
       </div>
+
+      <button className="adv-toggle" onClick={() => setShowAdv(!showAdv)}>
+        {showAdv ? '▾' : '▸'} 進階條件
+        {condCount > 0 && <span className="adv-count">{condCount}</span>}
+      </button>
+
+      {showAdv && (
+        <>
+          {/* ── 格局 ── */}
+          <div className="cond-card">
+            <div className="cond-title">格局(擇一即得)</div>
+            <div className="ge-groups">
+              {GROUPS.map((group) => (
+                <div className="ge-group" key={group}>
+                  <span className="ge-group-label">{group}</span>
+                  <span className="ge-chips">
+                    {GE_CATALOG.filter((e) => e.group === group).map((e) => (
+                      <button
+                        key={e.name}
+                        className={`ge-chip${geSel.has(e.name) ? ' on' : ''}`}
+                        title={e.note}
+                        onClick={() => toggleGe(e.name)}
+                      >
+                        {e.name}
+                      </button>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {geSel.size > 0 && (
+              <div className="cond-rows">
+                {[...geSel.entries()].map(([name, q]) => (
+                  <div className="cond-row" key={name}>
+                    <strong>{name}</strong>
+                    <label>
+                      落
+                      <select
+                        value={q.palace}
+                        onChange={(e) => setGeQual(name, { ...q, palace: +e.target.value })}
+                      >
+                        <option value={0}>任意宮</option>
+                        {COND_PALACES.map(([p, n]) => (
+                          <option value={p} key={p}>
+                            {n}宮
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      遇
+                      <select
+                        value={q.door}
+                        onChange={(e) => setGeQual(name, { ...q, door: e.target.value })}
+                      >
+                        <option value="">任意門</option>
+                        {DOOR_NAMES.map((d) => (
+                          <option value={d} key={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button className="cond-del" onClick={() => toggleGe(name)} aria-label="刪">
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── 宮旺・用神・長生・避忌 ── */}
+          <div className="cond-card">
+            <div className="cond-title">加持條件(全須成立)</div>
+            <div className="cond-rows">
+              {wangRows.map((w, i) => (
+                <div className="cond-row" key={`w${i}`}>
+                  <strong>宮旺</strong>
+                  <select
+                    value={w.palace}
+                    onChange={(e) => {
+                      const rows = [...wangRows];
+                      rows[i] = { ...w, palace: +e.target.value };
+                      setWangRows(rows);
+                      reset();
+                    }}
+                  >
+                    {COND_PALACES.map(([p, n]) => (
+                      <option value={p} key={p}>
+                        {n}宮
+                      </option>
+                    ))}
+                  </select>
+                  <label>
+                    於月令
+                    <select
+                      value={w.accept}
+                      onChange={(e) => {
+                        const rows = [...wangRows];
+                        rows[i] = { ...w, accept: e.target.value as WangRow['accept'] };
+                        setWangRows(rows);
+                        reset();
+                      }}
+                    >
+                      <option value="旺相">旺或相</option>
+                      <option value="旺">旺</option>
+                      <option value="相">相</option>
+                    </select>
+                  </label>
+                  {wangWarns[i] && <span className="cond-warn">{wangWarns[i]}</span>}
+                  <button
+                    className="cond-del"
+                    onClick={() => {
+                      setWangRows(wangRows.filter((_, j) => j !== i));
+                      reset();
+                    }}
+                    aria-label="刪"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {yongRows.map((y, i) => (
+                <div className="cond-row" key={`y${i}`}>
+                  <strong>用神</strong>
+                  <select
+                    value={y.yong}
+                    onChange={(e) => {
+                      const rows = [...yongRows];
+                      rows[i] = { ...y, yong: e.target.value };
+                      setYongRows(rows);
+                      reset();
+                    }}
+                  >
+                    {YONG_OPTIONS.map((g) => (
+                      <optgroup label={g.group} key={g.group}>
+                        {g.items.map(([v, label]) => (
+                          <option value={v} key={v}>
+                            {label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <select
+                    value={y.relation}
+                    onChange={(e) => {
+                      const rows = [...yongRows];
+                      rows[i] = { ...y, relation: e.target.value as YongRelation };
+                      setYongRows(rows);
+                      reset();
+                    }}
+                  >
+                    <option value="生">生</option>
+                    <option value="比和">比和</option>
+                    <option value="同宮">同宮(天盤)</option>
+                  </select>
+                  <select
+                    value={y.target}
+                    onChange={(e) => {
+                      const rows = [...yongRows];
+                      rows[i] = { ...y, target: e.target.value };
+                      setYongRows(rows);
+                      reset();
+                    }}
+                  >
+                    {PILLAR_KEYS.map((p) => (
+                      <option value={`柱:${p}`} key={p}>
+                        盤之{PILLAR_LABEL[p]}
+                      </option>
+                    ))}
+                    <option value="命">用家年命</option>
+                  </select>
+                  {y.target === '命' && (
+                    <label>
+                      生年
+                      <input
+                        type="number"
+                        className="year-input"
+                        value={y.year}
+                        min={1900}
+                        max={2100}
+                        onChange={(e) => {
+                          const rows = [...yongRows];
+                          rows[i] = { ...y, year: +e.target.value };
+                          setYongRows(rows);
+                          reset();
+                        }}
+                      />
+                      <span className="year-stem">{yearStem(y.year)}年</span>
+                    </label>
+                  )}
+                  <button
+                    className="cond-del"
+                    onClick={() => {
+                      setYongRows(yongRows.filter((_, j) => j !== i));
+                      reset();
+                    }}
+                    aria-label="刪"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {csRows.map((c, i) => (
+                <div className="cond-row" key={`c${i}`}>
+                  <strong>長生</strong>
+                  <select
+                    value={c.stem}
+                    onChange={(e) => {
+                      const rows = [...csRows];
+                      rows[i] = { ...c, stem: e.target.value };
+                      setCsRows(rows);
+                      reset();
+                    }}
+                  >
+                    {PILLAR_KEYS.map((p) => (
+                      <option value={`柱:${p}`} key={p}>
+                        盤之{PILLAR_LABEL[p]}
+                      </option>
+                    ))}
+                    <option value="命">用家年命</option>
+                  </select>
+                  處
+                  <select
+                    value={c.stage}
+                    onChange={(e) => {
+                      const rows = [...csRows];
+                      rows[i] = { ...c, stage: e.target.value };
+                      setCsRows(rows);
+                      reset();
+                    }}
+                  >
+                    <option value="四吉">四吉(生帶祿旺)</option>
+                    {STAGES.map((s) => (
+                      <option value={s} key={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {c.stem === '命' && (
+                    <label>
+                      生年
+                      <input
+                        type="number"
+                        className="year-input"
+                        value={c.year}
+                        min={1900}
+                        max={2100}
+                        onChange={(e) => {
+                          const rows = [...csRows];
+                          rows[i] = { ...c, year: +e.target.value };
+                          setCsRows(rows);
+                          reset();
+                        }}
+                      />
+                      <span className="year-stem">{yearStem(c.year)}年</span>
+                    </label>
+                  )}
+                  <button
+                    className="cond-del"
+                    onClick={() => {
+                      setCsRows(csRows.filter((_, j) => j !== i));
+                      reset();
+                    }}
+                    aria-label="刪"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <div className="cond-add">
+                <button
+                  onClick={() => {
+                    setWangRows([...wangRows, { palace: 1, accept: '旺相' }]);
+                    reset();
+                  }}
+                >
+                  +宮旺
+                </button>
+                <button
+                  onClick={() => {
+                    setYongRows([
+                      ...yongRows,
+                      { yong: '門:開門', relation: '生', target: '柱:day', year: 1990 },
+                    ]);
+                    reset();
+                  }}
+                >
+                  +用神
+                </button>
+                <button
+                  onClick={() => {
+                    setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990 }]);
+                    reset();
+                  }}
+                >
+                  +長生
+                </button>
+              </div>
+              <div className="cond-row avoid-row">
+                <strong>避忌</strong>
+                {AVOID_ITEMS.map(([key, label]) => (
+                  <label className="opt check" key={key}>
+                    <input
+                      type="checkbox"
+                      checked={!!avoid[key]}
+                      onChange={(e) => {
+                        setAvoid({ ...avoid, [key]: e.target.checked });
+                        reset();
+                      }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {rangeError && <div className="error">{rangeError}</div>}
 
@@ -577,46 +689,62 @@ export default function Search({
         <div className="hint">此範圍內無合條件之時;可放寬範圍或減條件</div>
       )}
 
-      {grouped && grouped.length > 0 && (
-        <div className="search-results">
-          {grouped.map((g) => (
-            <div className="day-group" key={g.label}>
-              <div className="day-label">{g.label}</div>
-              {g.hits.map((h, i) => (
-                <button
-                  className="hit-row"
-                  key={i}
-                  onClick={() =>
-                    onPick(h.date, h.matches.find((m) => m.palace)?.palace ?? null)
-                  }
-                >
-                  <span className="hit-time">
-                    {h.hourGZ}時 {hourRange(h.hourGZ[1])}
-                    {h.ke != null && <i className="hit-ke">第{h.ke}刻</i>}
-                  </span>
-                  <span className="hit-matches">
-                    {h.matches.map((m, j) => (
-                      <span
-                        className={`chip ${m.kind === '格' ? `chip-${m.luck}` : `chip-${m.kind}`}`}
-                        key={j}
-                      >
-                        {m.label}
-                        {m.palaceName && m.kind !== '旺' ? `·${m.palaceName}` : ''}
+      {results && results.length > 0 && (
+        <>
+          <div className="best-cards">
+            {best.map((h, i) => (
+              <button className="best-card" key={i} onClick={() => pick(h)}>
+                <span className="best-rank">{['最佳', '次吉', '又次'][i]}</span>
+                <span className="best-time">
+                  {h.hourGZ}時 <i>{hourRange(h.hourGZ[1])}</i>
+                  {h.ke != null && <i className="hit-ke">第{h.ke}刻</i>}
+                </span>
+                <span className="best-date">{dayLabel(h)}</span>
+                <span className="hit-matches">{hitChips(h)}</span>
+              </button>
+            ))}
+          </div>
+          <details className="all-hits">
+            <summary>全部 {results.length} 中</summary>
+            <div className="search-results">
+              {grouped!.map((g) => (
+                <div className="day-group" key={g.label}>
+                  <div className="day-label">{g.label}</div>
+                  {g.hits.map((h, i) => (
+                    <button className="hit-row" key={i} onClick={() => pick(h)}>
+                      <span className="hit-time">
+                        {h.hourGZ}時 {hourRange(h.hourGZ[1])}
+                        {h.ke != null && <i className="hit-ke">第{h.ke}刻</i>}
                       </span>
-                    ))}
-                  </span>
-                </button>
+                      <span className="hit-matches">{hitChips(h)}</span>
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
-        </div>
+          </details>
+        </>
       )}
 
       {!results && (
-        <div className="hint">
-          擇格局或加條件,定起訖之日,按搜尋;點結果即載其時之盤
-        </div>
+        <div className="hint">擇事由與起訖之日,按「求吉時」;點結果即載其時之盤</div>
       )}
     </div>
   );
+}
+
+/** 某時刻之月支(取當日正午),超出範圍者空 */
+function monthBranchAt(ms: number): string {
+  const d = new Date(ms);
+  try {
+    return computeChart({
+      year: d.getFullYear(),
+      month: d.getMonth() + 1,
+      day: d.getDate(),
+      hour: 12,
+      minute: 0,
+    }).pillars.month[1];
+  } catch {
+    return '';
+  }
 }

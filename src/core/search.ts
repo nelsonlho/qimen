@@ -23,23 +23,24 @@ export interface GeCatalogEntry {
   name: string
   luck: Luck
   group: '九遁' | '詐假' | '三奇' | '剋應吉格'
+  note: string
 }
 
 function buildCatalog(): GeCatalogEntry[] {
   const list: GeCatalogEntry[] = []
   for (const [name, def] of Object.entries(ZE_GE)) {
-    list.push({ name, luck: def.luck, group: name.endsWith('遁') ? '九遁' : '詐假' })
+    list.push({ name, luck: def.luck, group: name.endsWith('遁') ? '九遁' : '詐假', note: def.note })
   }
   list.push(
-    { name: '三奇升殿', luck: '吉', group: '三奇' },
-    { name: '三奇得使', luck: '吉', group: '三奇' },
-    { name: '玉女守門', luck: '吉', group: '三奇' },
+    { name: '三奇升殿', luck: '吉', group: '三奇', note: '乙丙丁各臨本殿,貴而得位' },
+    { name: '三奇得使', luck: '吉', group: '三奇', note: '奇臨其使,所謀皆遂' },
+    { name: '玉女守門', luck: '吉', group: '三奇', note: '丁奇臨值使之門,百事可為' },
   )
   const seen = new Set(list.map((e) => e.name))
   for (const ky of Object.values(KE_YING)) {
     if (ky.luck === '吉' && !seen.has(ky.name)) {
       seen.add(ky.name)
-      list.push({ name: ky.name, luck: '吉', group: '剋應吉格' })
+      list.push({ name: ky.name, luck: '吉', group: '剋應吉格', note: ky.note })
     }
   }
   return list
@@ -47,6 +48,18 @@ function buildCatalog(): GeCatalogEntry[] {
 
 /** 可搜尋格局目錄,供 UI 生成選項 */
 export const GE_CATALOG: GeCatalogEntry[] = buildCatalog()
+
+/** 事由 → 吉格包(輯自諸格 note 之「宜」;避忌默認全開由 UI 定) */
+export const INTENT_PRESETS: { intent: string; ge: string[] }[] = [
+  { intent: '經商求財', ge: ['天遁', '重詐', '物假', '獄神得奇'] },
+  { intent: '婚姻嫁娶', ge: ['天遁', '人遁', '休詐', '天乙會合'] },
+  { intent: '上書求名', ge: ['天假', '青龍耀明', '青龍轉光', '天遁'] },
+  { intent: '修造安葬', ge: ['地遁', '神假'] },
+  { intent: '和談交易', ge: ['人遁', '休詐', '物假'] },
+  { intent: '隱遁避難', ge: ['雲遁', '鬼遁', '地假', '華蓋逢星'] },
+  { intent: '祭祀祈福', ge: ['神遁', '神假', '雲遁'] },
+  { intent: '捕捉討債', ge: ['人假', '物假'] },
+]
 
 export const DOOR_NAMES = Object.keys(DOOR_ELEMENT)
 export const STAR_NAMES = Object.keys(STAR_ELEMENT)

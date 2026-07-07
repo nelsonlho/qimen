@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GE_CATALOG, searchGe } from '../search'
+import { GE_CATALOG, INTENT_PRESETS, searchGe } from '../search'
 import { analyzeChart } from '../analysis'
 import { computeChart } from '../pan'
 import { BRANCH_ELEMENT, PALACE_ELEMENT, STEM_ELEMENT, seasonStrength, sheng } from '../wuxing'
@@ -31,6 +31,16 @@ describe('擇時反查', () => {
     }
     expect(new Set(GE_CATALOG.map((e) => e.group)).size).toBe(4)
     expect(GE_CATALOG.every((e) => e.luck === '吉')).toBe(true)
+  })
+
+  it('事由包之格皆在目錄,且各有註', () => {
+    for (const p of INTENT_PRESETS) {
+      expect(p.ge.length).toBeGreaterThan(0)
+      for (const name of p.ge) {
+        expect(CATALOG_NAMES.has(name)).toBe(true)
+      }
+    }
+    expect(GE_CATALOG.every((e) => e.note.length > 0)).toBe(true)
   })
 
   it('空查詢 → 空結果', () => {
