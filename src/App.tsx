@@ -37,11 +37,6 @@ const RING: [string, number, number][] = [
   ['丑', 5, 2], ['子', 5, 3], ['亥', 5, 4],
 ];
 
-// 環之四角:斜線界之(式盤之制),[列, 行, 斜向]
-const RING_CORNERS: [number, number, 'tl' | 'tr' | 'bl' | 'br'][] = [
-  [1, 1, 'tl'], [1, 5, 'tr'], [5, 1, 'bl'], [5, 5, 'br'],
-];
-
 // 後天八卦水印
 const TRIGRAM: Record<number, string> = {
   1: '☵', 2: '☷', 3: '☳', 4: '☴', 5: '☯', 6: '☰', 7: '☱', 8: '☶', 9: '☲',
@@ -694,13 +689,6 @@ export default function App() {
             // 穿壬:天將成外環,依支繞盤
             return (
               <div className="chuan-ring">
-                {RING_CORNERS.map(([row, col, dir]) => (
-                  <div
-                    className={`ring-corner ring-corner-${dir}`}
-                    style={{ gridRow: row, gridColumn: col }}
-                    key={dir}
-                  />
-                ))}
                 {RING.map(([b, row, col]) => (
                   <div
                     className={`ring-cell${col === 1 || col === 5 ? ' ring-side' : ''}${jiangMap[b] === '貴人' ? ' ring-gui' : ''}`}

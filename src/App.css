@@ -599,9 +599,10 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 3px 6px;
-  font-size: 0.95rem;
+  gap: 8px;
+  padding: 4px 8px;
+  /* 將字齊九星之度(.row 同式) */
+  font-size: clamp(1.05rem, 4.4vw, 1.45rem);
   line-height: 1.35;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -611,13 +612,13 @@ h1 {
 /* 左右側直排 */
 .ring-cell.ring-side {
   flex-direction: column;
-  gap: 1px;
-  padding: 8px 4px;
+  gap: 2px;
+  padding: 10px 5px;
 }
 
 .ring-branch {
   color: var(--muted);
-  font-size: 0.78rem;
+  font-size: 0.68em;
 }
 
 .ring-jiang {
@@ -643,34 +644,6 @@ h1 {
   font-weight: 600;
 }
 
-/* 環之四角:斜線界之(式盤之制) */
-.ring-corner {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--cell);
-}
-
-.ring-corner-tl,
-.ring-corner-br {
-  background-image: linear-gradient(
-    45deg,
-    transparent calc(50% - 0.5px),
-    var(--line) calc(50% - 0.5px),
-    var(--line) calc(50% + 0.5px),
-    transparent calc(50% + 0.5px)
-  );
-}
-
-.ring-corner-tr,
-.ring-corner-bl {
-  background-image: linear-gradient(
-    135deg,
-    transparent calc(50% - 0.5px),
-    var(--line) calc(50% - 0.5px),
-    var(--line) calc(50% + 0.5px),
-    transparent calc(50% + 0.5px)
-  );
-}
 
 /* 門帶干:門旁小字 */
 .daigan {
@@ -1545,8 +1518,7 @@ h1 {
     padding: 0;
   }
 
-  .ring-cell,
-  .ring-corner {
+  .ring-cell {
     display: none;
   }
 
