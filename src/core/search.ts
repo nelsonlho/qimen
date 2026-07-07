@@ -12,6 +12,7 @@ import {
   STAR_ELEMENT,
   STEM_ELEMENT,
   BRANCH_ELEMENT,
+  ke,
   seasonStrength,
   sheng,
   type Element,
@@ -87,11 +88,12 @@ export interface WangCond {
   accept: ('旺' | '相')[]
 }
 
-/** 用神:門/星/神(五行固定),或十干,或盤之四柱干 */
+/** 用神:門/星/神(五行固定),或十干,或盤之四柱干,或用家年命干 */
 export type YongShen =
   | { kind: '門' | '星' | '神'; name: string }
   | { kind: '干'; stem: string }
   | { kind: '柱'; pillar: PillarKey }
+  | { kind: '命'; stem: string }
 
 /** 干之指涉:盤之四柱干,或用家年命干 */
 export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string }
@@ -99,8 +101,8 @@ export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: 
 /** @deprecated 舊名,同 StemRef */
 export type ShengTarget = StemRef
 
-/** 用神與干之關係:五行生、五行比和、天盤同宮 */
-export type YongRelation = '生' | '比和' | '同宮'
+/** 用神與干之關係:五行生/剋/被剋/比和,或天盤同宮 */
+export type YongRelation = '生' | '比和' | '剋' | '被剋' | '同宮'
 
 /** 用神條件 */
 export interface YongCond {
@@ -168,6 +170,7 @@ function yongElement(y: YongShen, chart: Chart): Element {
     case '神':
       return GOD_ELEMENT[y.name]
     case '干':
+    case '命':
       return STEM_ELEMENT[y.stem]
     case '柱':
       return STEM_ELEMENT[chart.pillars[y.pillar][0]]
@@ -182,6 +185,8 @@ export function yongLabel(y: YongShen): string {
       return y.name
     case '干':
       return y.stem
+    case '命':
+      return `年命${y.stem}`
     case '柱':
       return PILLAR_LABEL[y.pillar]
   }
@@ -210,6 +215,7 @@ function yongPalaces(y: YongShen, chart: Chart): number[] {
         if (info.god === y.name) out.push(info.palace)
         break
       case '干':
+      case '命':
         if (info.skyStems.includes(y.stem)) out.push(info.palace)
         break
       case '柱':
@@ -343,11 +349,17 @@ function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): Searc
     } else {
       const a = yongElement(y.yong, chart)
       const b = STEM_ELEMENT[targetStem]
-      if (relation === '生' ? !sheng(a, b) : a !== b) return null
-      matches.push({
-        kind: '用',
-        label: `${yongLabel(y.yong)}${relation === '生' ? '生' : '比和'}${targetLabel(y.target)}`,
-      })
+      const ok =
+        relation === '生' ? sheng(a, b)
+        : relation === '剋' ? ke(a, b)
+        : relation === '被剋' ? ke(b, a)
+        : a === b
+      if (!ok) return null
+      const yl = yongLabel(y.yong)
+      const tl = targetLabel(y.target)
+      const label =
+        relation === '被剋' ? `${yl}被${tl}剋` : `${yl}${relation}${tl}`
+      matches.push({ kind: '用', label })
     }
   }
 

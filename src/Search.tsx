@@ -57,9 +57,11 @@ const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
   { group: '八神', items: GOD_NAMES.map((n) => [`神:${n}`, n] as [string, string]) },
   { group: '十干', items: STEMS.map((s) => [`干:${s}`, s] as [string, string]) },
   { group: '盤之柱干', items: PILLAR_KEYS.map((p) => [`柱:${p}`, PILLAR_LABEL[p]] as [string, string]) },
+  { group: '用家', items: [['命', '年命']] as [string, string][] },
 ];
 
-function decodeYong(v: string): YongShen {
+function decodeYong(v: string, year: number): YongShen {
+  if (v === '命') return { kind: '命', stem: yearStem(year) };
   const [kind, rest] = v.split(':') as [string, string];
   if (kind === '干') return { kind: '干', stem: rest };
   if (kind === '柱') return { kind: '柱', pillar: rest as PillarKey };
@@ -255,7 +257,7 @@ export default function Search({
         accept: w.accept === '旺相' ? (['旺', '相'] as const) : [w.accept],
       })),
       yong: yongRows.map((y) => ({
-        yong: decodeYong(y.yong),
+        yong: decodeYong(y.yong, y.year),
         relation: y.relation,
         target: decodeStemRef(y.target, y.year),
       })),
@@ -517,6 +519,8 @@ export default function Search({
                   >
                     <option value="生">生</option>
                     <option value="比和">比和</option>
+                    <option value="剋">剋</option>
+                    <option value="被剋">被剋</option>
                     <option value="同宮">同宮(天盤)</option>
                   </select>
                   <select
@@ -535,7 +539,7 @@ export default function Search({
                     ))}
                     <option value="命">用家年命</option>
                   </select>
-                  {y.target === '命' && (
+                  {(y.yong === '命' || y.target === '命') && (
                     <label>
                       生年
                       <input

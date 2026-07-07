@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { GE_CATALOG, INTENT_PRESETS, searchGe } from '../search'
 import { analyzeChart } from '../analysis'
 import { computeChart } from '../pan'
-import { BRANCH_ELEMENT, PALACE_ELEMENT, STEM_ELEMENT, seasonStrength, sheng } from '../wuxing'
+import { BRANCH_ELEMENT, PALACE_ELEMENT, STEM_ELEMENT, ke, seasonStrength, sheng } from '../wuxing'
 import type { Stage } from '../changsheng'
 import type { DateParts } from '../types'
 
@@ -179,6 +179,51 @@ describe('擇時反查', () => {
         endAfter(1),
       ),
     ).toEqual([])
+  })
+
+  it('用神剋/被剋:年命庚金剋甲木;甲木被庚金剋;方向不可倒', () => {
+    // 年命亦可為用神側
+    const kehits = searchGe(
+      { yong: [{ yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } }] },
+      START,
+      endAfter(1),
+    )
+    expect(kehits.length).toBeGreaterThanOrEqual(12)
+    expect(kehits.every((h) => h.matches.some((m) => m.label === '年命庚剋年命甲'))).toBe(true)
+    // 倒向恆假
+    expect(
+      searchGe(
+        { yong: [{ yong: { kind: '命', stem: '甲' }, relation: '剋', target: { kind: '命', stem: '庚' } }] },
+        START,
+        endAfter(1),
+      ),
+    ).toEqual([])
+    // 被剋 = 反向剋
+    const beihits = searchGe(
+      { yong: [{ yong: { kind: '干', stem: '甲' }, relation: '被剋', target: { kind: '命', stem: '庚' } }] },
+      START,
+      endAfter(1),
+    )
+    expect(beihits.length).toBeGreaterThanOrEqual(12)
+    expect(beihits.every((h) => h.matches.some((m) => m.label === '甲被年命庚剋'))).toBe(true)
+  })
+
+  it('用神剋盤之日干:與手掃全等', () => {
+    const days = 12
+    const hits = searchGe(
+      { yong: [{ yong: { kind: '柱', pillar: 'hour' }, relation: '剋', target: { kind: '柱', pillar: 'day' } }] },
+      START,
+      endAfter(days),
+    )
+    const expected = new Set<string>()
+    for (const parts of scanHours(days)) {
+      const chart = computeChart(parts)
+      if (ke(STEM_ELEMENT[chart.pillars.hour[0]], STEM_ELEMENT[chart.pillars.day[0]])) {
+        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
+      }
+    }
+    expect(hits.length).toBe(expected.size)
+    expect(hits.length).toBeGreaterThan(0)
   })
 
   it('用神同宮:開門與日干同宮 ⇔ 開門宮天盤有日干', () => {
