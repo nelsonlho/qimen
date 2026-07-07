@@ -592,6 +592,12 @@ h1 {
   white-space: nowrap;
 }
 
+/* 鳴法飛支 */
+.feizhi {
+  color: var(--good);
+  white-space: nowrap;
+}
+
 /* 穿壬:十二天將外環,各將有界,吉將青、凶將朱、貴人金 */
 .chuan-ring {
   display: grid;

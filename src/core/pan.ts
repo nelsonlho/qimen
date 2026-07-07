@@ -2,6 +2,7 @@
 
 import { Solar } from 'lunar-typescript'
 import {
+  BRANCHES,
   STEMS,
   ganzhiName,
   hourBranchIndex,
@@ -230,6 +231,16 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
     anGan[p] = (anGan[p] ?? '') + STEMS[i]
   }
 
+  // --- 鳴法飛支(暗支):旬宮起本旬首支,十二支陽順陰逆飛佈(末三支與首三支同宮) ---
+  const anZhi: Record<number, string> = {}
+  if (plateStyle === '鳴法') {
+    const startBr = xun % 12 // 甲子旬起子、甲戌旬起戌…
+    for (let i = 0; i < 12; i++) {
+      const p = ju.dun === '陽' ? wrap9(fuPalaceRaw + i) : wrap9(fuPalaceRaw - i)
+      anZhi[p] = (anZhi[p] ?? '') + BRANCHES[(startBr + i) % 12]
+    }
+  }
+
   // --- 隱干:時干(甲用旬首儀)加值使落宮,三奇六儀次序陽順陰逆飛佈(含中五) ---
   const yinGan: Record<number, string> = {}
   const yinSeqStart = EARTH_SEQ.indexOf(searchStem)
@@ -269,6 +280,7 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
       horse: branches.includes(horse),
       anGan: anGan[p],
       yinGan: yinGan[p],
+      anZhi: plateStyle === '鳴法' ? anZhi[p] ?? null : null,
     })
   }
 

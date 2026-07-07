@@ -73,6 +73,8 @@ export interface PalaceInfo {
   horse: boolean // 時馬星
   anGan: string // 暗干:甲起旬首儀地盤宮,十干依序陽順陰逆飛佈(癸與甲同宮)
   yinGan: string // 隱干:時干加值使落宮,三奇六儀陽順陰逆飛佈
+  /** 鳴法飛支(暗支):旬宮起本旬首支,十二支陽順陰逆飛佈;他式無 */
+  anZhi?: string | null
   doorDaiGan: string | null // 門帶干:當局地盤中,門本宮之干
 }
 

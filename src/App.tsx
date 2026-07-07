@@ -111,6 +111,7 @@ function PalaceCell({
   showAnGan,
   showYinGan,
   showDaiGan,
+  showFeiZhi,
   order,
   globalGe,
   jiangMap,
@@ -123,6 +124,7 @@ function PalaceCell({
   showAnGan: boolean;
   showYinGan: boolean;
   showDaiGan: boolean;
+  showFeiZhi: boolean;
   order: number;
   globalGe: GeJu[];
   jiangMap: Record<string, TianJiang> | null;
@@ -134,6 +136,7 @@ function PalaceCell({
     <div className="cell-foot">
       {showAnGan && <span className="angan">暗{info.anGan}</span>}
       {showYinGan && <span className="yingan">隱{info.yinGan}</span>}
+      {showFeiZhi && info.anZhi && <span className="feizhi">支{info.anZhi}</span>}
       {jiangMap && PALACE_BRANCHES[info.palace].length > 0 && (
         <span className="jiang-inline">
           {PALACE_BRANCHES[info.palace].map((b) => (
@@ -411,6 +414,17 @@ function DetailPanel({
             <span className="note">(時干加值使宮,奇儀飛佈)</span>
           </dd>
         </div>
+        {info.anZhi && (
+          <div>
+            <dt>飛支</dt>
+            <dd>
+              {info.anZhi}
+              <span className="note">
+                (鳴法暗支:旬宮起本旬首支,陽順陰逆;配刑德以知神煞)
+              </span>
+            </dd>
+          </div>
+        )}
         <div>
           <dt>天盤干長生</dt>
           <dd>
@@ -470,6 +484,7 @@ export default function App() {
   const [showYinGan, setShowYinGan] = useState(layerInit('qimen-yingan'));
   const [showDaiGan, setShowDaiGan] = useState(layerInit('qimen-daigan'));
   const [showChuanRen, setShowChuanRen] = useState(layerInit('qimen-chuanren'));
+  const [showFeiZhi, setShowFeiZhi] = useState(layerInit('qimen-feizhi'));
   const [view, setView] = useState<'chart' | 'search'>('chart');
 
   useEffect(() => {
@@ -484,7 +499,8 @@ export default function App() {
     localStorage.setItem('qimen-yingan', showYinGan ? '1' : '0');
     localStorage.setItem('qimen-daigan', showDaiGan ? '1' : '0');
     localStorage.setItem('qimen-chuanren', showChuanRen ? '1' : '0');
-  }, [showAnGan, showYinGan, showDaiGan, showChuanRen]);
+    localStorage.setItem('qimen-feizhi', showFeiZhi ? '1' : '0');
+  }, [showAnGan, showYinGan, showDaiGan, showChuanRen, showFeiZhi]);
 
   const { chart, ana, error } = useMemo(() => {
     const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -635,6 +651,16 @@ export default function App() {
             />
             穿壬
           </label>
+          {plate === '鳴法' && (
+            <label className="opt check">
+              <input
+                type="checkbox"
+                checked={showFeiZhi}
+                onChange={(e) => setShowFeiZhi(e.target.checked)}
+              />
+              飛支
+            </label>
+          )}
         </div>
       )}
 
@@ -722,6 +748,7 @@ export default function App() {
                     showAnGan={showAnGan}
                     showYinGan={showYinGan}
                     showDaiGan={showDaiGan}
+                    showFeiZhi={showFeiZhi}
                     globalGe={ana.global}
                     jiangMap={jiangMap}
                   />
@@ -766,7 +793,8 @@ export default function App() {
               門神同法飛佈,九神以勾陳、朱雀、太常代轉盤之白虎、玄武。
               鳴法(《奇門遁甲鳴法》):星、儀、門恆順飛不分遁,九門補中門,
               九神陽遁順飛(符蛇陰合陳常雀地天)、陰遁逆飛(符蛇陰合虎常玄地天),
-              天盤起值符落宮、地盤起值符原宮,一明一暗兩套。
+              天盤起值符落宮、地盤起值符原宮,一明一暗兩套;
+              飛支自旬宮起本旬首支,十二支陽順陰逆飛佈。
               時間依東八區。支援約 1900–2100 年。
             </p>
           </footer>

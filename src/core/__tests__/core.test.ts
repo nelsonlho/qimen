@@ -537,6 +537,16 @@ describe('鳴法', () => {
       expect(chart.palaces[w9(fuT + dir * i) - 1].god).toBe(seq[i])
       expect(chart.palaces[w9(fuRaw + dir * i) - 1].earthGod).toBe(seq[i])
     }
+    // 飛支:旬宮起本旬首支,十二支陽順陰逆,共十二字
+    const BR = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
+    const xunBranch = chart.xunShou[1] // 如 甲辰(壬) → 辰
+    const start = BR.indexOf(xunBranch)
+    for (let i = 0; i < 12; i++) {
+      const p = w9(fuRaw + dir * i)
+      expect(chart.palaces[p - 1].anZhi).toContain(BR[(start + i) % 12])
+    }
+    expect(chart.palaces[fuRaw - 1].anZhi![0]).toBe(xunBranch)
+    expect(chart.palaces.map((p) => p.anZhi ?? '').join('').length).toBe(12)
     return chart
   }
 
