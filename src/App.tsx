@@ -112,6 +112,7 @@ function PalaceCell({
   showDaiGan,
   order,
   globalGe,
+  jiangMap,
 }: {
   info: PalaceInfo;
   chart: Chart;
@@ -123,13 +124,24 @@ function PalaceCell({
   showDaiGan: boolean;
   order: number;
   globalGe: GeJu[];
+  jiangMap: Record<string, TianJiang> | null;
 }) {
   const cellStyle = { '--i': order } as CSSProperties;
   // 格底一行:左為暗干隱干,右為宮名——入流佈局,不壓正文
+  // 天將:寬屏由外環顯,窄屏環無所容,以此行內備(CSS media 擇一)
   const cellFoot = (
     <div className="cell-foot">
       {showAnGan && <span className="angan">暗{info.anGan}</span>}
       {showYinGan && <span className="yingan">隱{info.yinGan}</span>}
+      {jiangMap && PALACE_BRANCHES[info.palace].length > 0 && (
+        <span className="jiang-inline">
+          {PALACE_BRANCHES[info.palace].map((b) => (
+            <i className={`jiang-${JIANG_LUCK[jiangMap[b]]}`} key={b}>
+              {JIANG_SHORT[jiangMap[b]]}
+            </i>
+          ))}
+        </span>
+      )}
       <span className="palace-name">{info.name}</span>
     </div>
   );
@@ -668,6 +680,7 @@ export default function App() {
                     showYinGan={showYinGan}
                     showDaiGan={showDaiGan}
                     globalGe={ana.global}
+                    jiangMap={jiangMap}
                   />
                 ))}
               </div>
@@ -678,7 +691,7 @@ export default function App() {
               <div className="chuan-ring">
                 {RING.map(([b, row, col]) => (
                   <div
-                    className={`ring-cell${col === 1 || col === 5 ? ' ring-side' : ''}`}
+                    className={`ring-cell${col === 1 || col === 5 ? ' ring-side' : ''}${jiangMap[b] === '貴人' ? ' ring-gui' : ''}`}
                     style={{ gridRow: row, gridColumn: col }}
                     key={b}
                     title={`${b}・${jiangMap[b]}`}
