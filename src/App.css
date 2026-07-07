@@ -582,15 +582,12 @@ h1 {
   white-space: nowrap;
 }
 
-/* 穿壬:十二天將外環一框,吉將青、凶將朱、貴人金 */
+/* 穿壬:十二天將外環,各將有界,吉將青、凶將朱、貴人金 */
 .chuan-ring {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto;
-  gap: 2px 6px;
-  padding: 6px 8px;
-  border: 1px dashed var(--line);
-  border-radius: 16px;
+  gap: 3px;
 }
 
 .chuan-ring .board {
@@ -602,25 +599,25 @@ h1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  justify-self: center;
-  align-self: center;
-  gap: 4px;
-  padding: 1px 4px;
-  font-size: 0.76rem;
+  gap: 6px;
+  padding: 3px 6px;
+  font-size: 0.95rem;
   line-height: 1.35;
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cell);
 }
 
 /* 左右側直排 */
 .ring-cell.ring-side {
   flex-direction: column;
-  gap: 0;
-  padding: 3px 2px;
+  gap: 1px;
+  padding: 8px 4px;
 }
 
 .ring-branch {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.78rem;
 }
 
 .ring-jiang {
@@ -637,13 +634,42 @@ h1 {
 
 /* 天乙貴人:環之錨,著金存記 */
 .ring-gui {
-  border: 1px solid var(--gold);
+  border-color: var(--gold);
   background: var(--cell-raised);
 }
 
 .ring-gui .ring-jiang.jiang-吉 {
   color: var(--gold);
   font-weight: 600;
+}
+
+/* 環之四角:斜線界之(式盤之制) */
+.ring-corner {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--cell);
+}
+
+.ring-corner-tl,
+.ring-corner-br {
+  background-image: linear-gradient(
+    45deg,
+    transparent calc(50% - 0.5px),
+    var(--line) calc(50% - 0.5px),
+    var(--line) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+}
+
+.ring-corner-tr,
+.ring-corner-bl {
+  background-image: linear-gradient(
+    135deg,
+    transparent calc(50% - 0.5px),
+    var(--line) calc(50% - 0.5px),
+    var(--line) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
 }
 
 /* 門帶干:門旁小字 */
@@ -1519,7 +1545,8 @@ h1 {
     padding: 0;
   }
 
-  .ring-cell {
+  .ring-cell,
+  .ring-corner {
     display: none;
   }
 
