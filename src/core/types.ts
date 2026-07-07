@@ -4,7 +4,7 @@ export type Dun = '陽' | '陰'
 
 export type ChaoJieStatus = '超神' | '接氣' | '正授' | '置閏' | '拆補'
 
-export type JuMethod = '置閏' | '拆補' | '旬首'
+export type JuMethod = '置閏' | '拆補' | '旬首' | '八刻'
 
 export interface DateParts {
   year: number
@@ -35,6 +35,8 @@ export interface JuInfo {
   status: ChaoJieStatus
   /** 符頭與節氣相隔日數(超神為正) */
   gapDays: number
+  /** 八刻法:本時辰第幾刻(1-8,每刻十五分鐘);他法無 */
+  ke?: number
 }
 
 export interface Pillars {

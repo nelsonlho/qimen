@@ -169,6 +169,19 @@ export function juForHourXun(jdn: number, hourGz: number, threshold = 9): JuDayR
   return { ...base, ju }
 }
 
+/**
+ * 八刻法(一刻一局):一時辰分八刻,每刻十五分鐘。
+ * 第一刻用本時辰旬首法(十刻一局)之局,之後每過一刻,
+ * 陽遁進一局、陰遁退一局,八刻而歷八局。
+ * @param ke 刻序 0-7
+ */
+export function juForHourKe(jdn: number, hourGz: number, ke: number, threshold = 9): JuDayResult {
+  const base = juForHourXun(jdn, hourGz, threshold)
+  const shift = base.dun === '陽' ? base.ju + ke : base.ju - ke
+  const ju = ((shift - 1) % 9 + 9) % 9 + 1
+  return { ...base, ju }
+}
+
 /** 拆補法:交節即換,元按當日符頭之支拆定 */
 export function juForDayChaibu(jdn: number): JuDayResult {
   const terms = getTerms(SIM_START, SIM_END)

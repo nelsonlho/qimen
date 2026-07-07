@@ -11,7 +11,7 @@ import {
   xunShouYi,
   xunStart,
 } from './ganzhi'
-import { dayGanzhiIndex, juForDay, juForDayChaibu, juForHourXun, type JuDayResult } from './ju'
+import { dayGanzhiIndex, juForDay, juForDayChaibu, juForHourKe, juForHourXun, type JuDayResult } from './ju'
 import { dayNumber } from './solarTerms'
 import type { Chart, DateParts, PalaceInfo, Pillars, QimenOptions } from './types'
 
@@ -91,12 +91,16 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
   }
 
   // --- 定局 ---
+  // 八刻法:時辰起於奇數時(23、1、3…),偶數時為時辰後半,加六十分
+  const keIdx = Math.floor(((input.hour % 2 === 1 ? 0 : 60) + input.minute) / 15)
   const ju: JuDayResult =
     method === '拆補'
       ? juForDayChaibu(dayJdn)
       : method === '旬首'
         ? juForHourXun(dayJdn, hourGz, threshold)
-        : juForDay(dayJdn, threshold)
+        : method === '八刻'
+          ? juForHourKe(dayJdn, hourGz, keIdx, threshold)
+          : juForDay(dayJdn, threshold)
   const plate = earthPlate(ju.dun, ju.ju)
 
   // --- 旬首、值符值使 ---
@@ -202,6 +206,7 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
       shangYuanFuTou: ju.shangYuanFuTou,
       status: ju.status,
       gapDays: ju.gapDays,
+      ...(method === '八刻' ? { ke: keIdx + 1 } : {}),
     },
     xunShou: `${ganzhiName(xun)}(${yi})`,
     xunYi: yi,

@@ -137,6 +137,7 @@ function PalaceCell({
         <div className="center-term">
           {chart.ju.termName}
           {chart.ju.yuanName}・{chart.ju.method}法
+          {chart.ju.ke != null && `・第${chart.ju.ke}刻`}
         </div>
         <div className="stem-row">
           <span className="earth-stem">{info.earthStems.join('')}</span>
@@ -242,6 +243,7 @@ function DetailPanel({
             <dd>
               {chart.ju.termName}
               {chart.ju.yuanName}・{chart.ju.dun}遁{chart.ju.ju}局({chart.ju.method}法
+              {chart.ju.ke != null && `・第${chart.ju.ke}刻`}
               {chart.ju.method === '置閏' &&
                 `,${chart.ju.status}${chart.ju.status !== '正授' ? Math.abs(chart.ju.gapDays) + '日' : ''}`}
               )
@@ -470,6 +472,7 @@ export default function App() {
             <option value="置閏">置閏法</option>
             <option value="拆補">拆補法</option>
             <option value="旬首">旬首法(十刻一局)</option>
+            <option value="八刻">八刻法(一刻一局)</option>
           </select>
         </label>
         <label className="opt">
@@ -546,7 +549,10 @@ export default function App() {
                   `(${Math.abs(chart.ju.gapDays)}日)`}
               </span>
             ) : (
-              <span className="status">拆補法</span>
+              <span className="status">
+                {chart.ju.method}法
+                {chart.ju.ke != null && `・第${chart.ju.ke}刻`}
+              </span>
             )}
             <span>旬首 {chart.xunShou}</span>
             <span>

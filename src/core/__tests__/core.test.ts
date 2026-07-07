@@ -370,3 +370,53 @@ describe('旬首法(十刻一局)', () => {
     expect(xu.ju.ju).toBe(2) // 甲戌旬:1+1
   })
 })
+
+describe('八刻法(一刻一局)', () => {
+  it('用戶刊例:2026-07-06 辛巳日甲午時首刻陰五(同旬首法時辰局)', () => {
+    const wu = computeChart({ year: 2026, month: 7, day: 6, hour: 11, minute: 0 }, { method: '八刻' })
+    expect(wu.pillars.hour).toBe('甲午')
+    expect(wu.ju.dun).toBe('陰')
+    expect(wu.ju.ju).toBe(5)
+    expect(wu.ju.ke).toBe(1)
+  })
+
+  it('陰遁逐刻退局:辛巳日戊子時(甲申旬陰六)自六局逆行', () => {
+    // 子時起於 23:00,首刻用本時辰旬首法之局(陰遁六局),每刻退一
+    const base = { year: 2026, month: 7, day: 5, hour: 23 }
+    const expected = [6, 5, 4, 3] // 23:00-, 23:15-, 23:30-, 23:45-
+    expected.forEach((ju, i) => {
+      const c = computeChart({ ...base, minute: i * 15 }, { method: '八刻' })
+      expect(c.pillars.hour).toBe('戊子')
+      expect(c.ju.dun).toBe('陰')
+      expect(c.ju.ju).toBe(ju)
+      expect(c.ju.ke).toBe(i + 1)
+    })
+    // 時辰後半(偶數時 0:00-1:00)為第五至八刻
+    const c5 = computeChart({ year: 2026, month: 7, day: 6, hour: 0, minute: 0 }, { method: '八刻' })
+    expect(c5.ju.ke).toBe(5)
+    expect(c5.ju.ju).toBe(2) // 6−4
+    const c8 = computeChart({ year: 2026, month: 7, day: 6, hour: 0, minute: 59 }, { method: '八刻' })
+    expect(c8.ju.ke).toBe(8)
+    expect(c8.ju.ju).toBe(8) // 6−7,過一歸九
+  })
+
+  it('陽遁逐刻進局且過九歸一:冬至上元一局,第一刻一局、第八刻八局', () => {
+    const segs = buildSegments(9)
+    const seg = segs.find(
+      (s) => s.startJdn > dayNumber(2000, 1, 1) && s.termName === '冬至' && !s.isLeap,
+    )!
+    const ymd = jdnToDate(seg.startJdn)
+    const first = computeChart({ ...ymd, hour: 1, minute: 0 }, { method: '八刻' }) // 丑時首刻
+    expect(first.ju.dun).toBe('陽')
+    expect(first.ju.ju).toBe(1)
+    expect(first.ju.ke).toBe(1)
+    const last = computeChart({ ...ymd, hour: 2, minute: 45 }, { method: '八刻' }) // 丑時末刻
+    expect(last.ju.ju).toBe(8)
+    expect(last.ju.ke).toBe(8)
+  })
+
+  it('他法不帶刻序', () => {
+    const c = computeChart({ year: 2026, month: 7, day: 6, hour: 0, minute: 30 }, { method: '置閏' })
+    expect(c.ju.ke).toBeUndefined()
+  })
+})
