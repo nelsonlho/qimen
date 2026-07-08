@@ -365,33 +365,33 @@ describe('擇時反查', () => {
     }
   })
 
-  it('生/比和/同宮(有情即可):等於三式之併,標籤明示所中', () => {
+  it('生/比和/同宮(有情即可):併相生兩向、比和、同宮;標籤明示所中', () => {
     const days = 5
-    const mk = (relation: '生' | '比和' | '同宮' | '生比和同宮') =>
+    const door = { kind: '門', name: '開門' } as const
+    const day = { kind: '柱', pillar: 'day' } as const
+    // 開門屬金:開門生日干⇔日干水;日干生開門⇔日干土;比和⇔日干金
+    const run = (yong: unknown, target: unknown, relation: string) =>
       searchGe(
-        {
-          yong: [
-            {
-              yong: { kind: '門', name: '開門' },
-              relation,
-              target: { kind: '柱', pillar: 'day' },
-              required: true,
-            },
-          ],
-        },
+        { yong: [{ yong, target, relation, required: true } as never] },
         START,
         endAfter(days),
       )
+    // 有情之併:開門生日干 ∪ 日干生開門(反向) ∪ 比和 ∪ 同宮
     const union = new Set(
-      [...mk('生'), ...mk('比和'), ...mk('同宮')].map((h) => `${h.date.day}|${h.hourGZ}`),
+      [
+        ...run(door, day, '生'),
+        ...run(day, door, '生'),
+        ...run(door, day, '比和'),
+        ...run(door, day, '同宮'),
+      ].map((h) => `${h.date.day}|${h.hourGZ}`),
     )
-    const combo = mk('生比和同宮')
-    expect(combo.length).toBe(union.size)
+    const combo = run(door, day, '生比和同宮')
+    // 合條恰為四式之併(逐時辰全等,非僅計數)
+    expect(new Set(combo.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(union)
     for (const h of combo) {
-      expect(union.has(`${h.date.day}|${h.hourGZ}`)).toBe(true)
       const m = h.matches.find((x) => x.kind === '用')!
       expect(
-        /開門(生|比和)日干(且同宮)?$|開門與日干同宮$/.test(m.label),
+        /(開門生日干|日干生開門|開門比和日干)(且同宮)?$|開門與日干同宮$/.test(m.label),
       ).toBe(true)
     }
   })
