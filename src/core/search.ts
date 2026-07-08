@@ -332,13 +332,12 @@ function evalYong(y: YongCond, chart: Chart): SearchMatch | null {
     return { kind: '用', label: `${yl}與${tl}同宮`, palace: common[0], palaceName: name }
   }
   if (relation === '生比和同宮') {
-    // 有情即可:相生(兩向皆取)、比和、同宮,任一即中;標籤明示所中者
+    // 有情即可:生(用神生目標,單向)、比和、同宮,任一即中;標籤明示所中者
     const a = yongElement(y.yong, chart)
     const b = yongElement(y.target, chart)
     const rel =
       a === b ? `${yl}比和${tl}`
       : sheng(a, b) ? `${yl}生${tl}`
-      : sheng(b, a) ? `${tl}生${yl}`
       : null
     const common = commonPalaces()
     if (!rel && common.length === 0) return null
@@ -355,6 +354,7 @@ function evalYong(y: YongCond, chart: Chart): SearchMatch | null {
   }
   const a = yongElement(y.yong, chart)
   const b = yongElement(y.target, chart)
+  // 生剋皆分向:生=用神生目標,剋=用神剋目標(倒者換側表之);比和同行
   const ok = relation === '生' ? sheng(a, b) : relation === '剋' ? ke(a, b) : a === b
   return ok ? { kind: '用', label: `${yl}${relation}${tl}` } : null
 }

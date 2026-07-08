@@ -365,34 +365,48 @@ describe('擇時反查', () => {
     }
   })
 
-  it('生/比和/同宮(有情即可):併相生兩向、比和、同宮;標籤明示所中', () => {
+  it('生/比和/同宮(有情即可):併單向生、比和、同宮;生不取反向', () => {
     const days = 5
     const door = { kind: '門', name: '開門' } as const
     const day = { kind: '柱', pillar: 'day' } as const
-    // 開門屬金:開門生日干⇔日干水;日干生開門⇔日干土;比和⇔日干金
-    const run = (yong: unknown, target: unknown, relation: string) =>
+    // 開門屬金:開門生日干(單向)⇔日干水;比和⇔日干金;同宮視盤
+    const run = (relation: string) =>
       searchGe(
-        { yong: [{ yong, target, relation, required: true } as never] },
+        { yong: [{ yong: door, target: day, relation, required: true } as never] },
         START,
         endAfter(days),
       )
-    // 有情之併:開門生日干 ∪ 日干生開門(反向) ∪ 比和 ∪ 同宮
+    // 有情之併:開門生日干(單向)∪ 比和 ∪ 同宮
     const union = new Set(
-      [
-        ...run(door, day, '生'),
-        ...run(day, door, '生'),
-        ...run(door, day, '比和'),
-        ...run(door, day, '同宮'),
-      ].map((h) => `${h.date.day}|${h.hourGZ}`),
+      [...run('生'), ...run('比和'), ...run('同宮')].map((h) => `${h.date.day}|${h.hourGZ}`),
     )
-    const combo = run(door, day, '生比和同宮')
-    // 合條恰為四式之併(逐時辰全等,非僅計數)
+    const combo = run('生比和同宮')
+    // 合條恰為三式之併(逐時辰全等)
     expect(new Set(combo.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(union)
     for (const h of combo) {
       const m = h.matches.find((x) => x.kind === '用')!
-      expect(
-        /(開門生日干|日干生開門|開門比和日干)(且同宮)?$|開門與日干同宮$/.test(m.label),
-      ).toBe(true)
+      expect(/(開門生日干|開門比和日干)(且同宮)?$|開門與日干同宮$/.test(m.label)).toBe(true)
+    }
+    // 反向之生不入合條:日干生開門(日干土→金)之時辰,若無正向/比和/同宮,不列
+    const rev = new Set(
+      searchGe(
+        { yong: [{ yong: day, target: door, relation: '生', required: true } as never] },
+        START,
+        endAfter(days),
+      ).map((h) => `${h.date.day}|${h.hourGZ}`),
+    )
+    const comboKeys = new Set(combo.map((h) => `${h.date.day}|${h.hourGZ}`))
+    // 反向專有(日干屬土)而非同宮者,不當在合條中
+    for (const parts of scanHours(days)) {
+      const chart = computeChart(parts)
+      const dayEl = STEM_ELEMENT[chart.pillars.day[0]]
+      const kaimen = chart.palaces.find((p) => p.door === '開門')
+      const coloc = !!kaimen?.skyStems.includes(chart.pillars.day[0])
+      const k = `${parts.day}|${chart.pillars.hour}`
+      if (dayEl === '土' && !coloc) {
+        expect(rev.has(k)).toBe(true) // 反向確含之
+        expect(comboKeys.has(k)).toBe(false) // 合條不含
+      }
     }
   })
 
