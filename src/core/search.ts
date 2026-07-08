@@ -10,7 +10,6 @@ import {
   GOD_ELEMENT,
   PALACE_ELEMENT,
   STAR_ELEMENT,
-  STEM_ELEMENT,
   BRANCH_ELEMENT,
   ke,
   seasonStrength,
@@ -181,24 +180,6 @@ export interface SearchOptions extends QimenOptions {
   avoid?: AvoidOptions
 }
 
-function yongElement(y: YongShen, chart: Chart): Element {
-  switch (y.kind) {
-    case '門':
-      return DOOR_ELEMENT[y.name]
-    case '星':
-      return STAR_ELEMENT[y.name]
-    case '神':
-      return GOD_ELEMENT[y.name]
-    case '干':
-    case '天盤干':
-    case '地盤干':
-    case '命':
-      return STEM_ELEMENT[y.stem]
-    case '柱':
-      return STEM_ELEMENT[chart.pillars[y.pillar][0]]
-  }
-}
-
 export function yongLabel(y: YongShen): string {
   switch (y.kind) {
     case '門':
@@ -250,6 +231,32 @@ function yongPalaces(y: YongShen, chart: Chart): number[] {
     }
   }
   return out
+}
+
+/**
+ * 用神落宮五行之生剋比和:遍歷兩者所有落宮,任一對合即中。
+ * 生剋比和皆以「所在宮之五行」論(非門/星/神/干本身五行)——
+ * 如休門落坎為水、日干落艮八(寅)不取寅木而取艮土。
+ * kind 生=用神宮生目標宮(單向)、剋=用神宮剋目標宮、比和=宮五行同。
+ * 回落宮對 [用神宮, 目標宮];無則 null。
+ */
+function palaceRel(
+  yong: YongShen,
+  target: YongShen,
+  chart: Chart,
+  kind: '生' | '剋' | '比和',
+): [number, number] | null {
+  const ap = yongPalaces(yong, chart)
+  const bp = yongPalaces(target, chart)
+  for (const pa of ap) {
+    for (const pb of bp) {
+      const ea = PALACE_ELEMENT[pa]
+      const eb = PALACE_ELEMENT[pb]
+      const ok = kind === '生' ? sheng(ea, eb) : kind === '剋' ? ke(ea, eb) : ea === eb
+      if (ok) return [pa, pb]
+    }
+  }
+  return null
 }
 
 function hasQuery(q: SearchQuery): boolean {
@@ -332,31 +339,38 @@ function evalYong(y: YongCond, chart: Chart): SearchMatch | null {
     return { kind: '用', label: `${yl}與${tl}同宮`, palace: common[0], palaceName: name }
   }
   if (relation === '生比和同宮') {
-    // 有情即可:生(用神生目標,單向)、比和、同宮,任一即中;標籤明示所中者
-    const a = yongElement(y.yong, chart)
-    const b = yongElement(y.target, chart)
-    const rel =
-      a === b ? `${yl}比和${tl}`
-      : sheng(a, b) ? `${yl}生${tl}`
-      : null
+    // 有情即可:生(用神宮生目標宮,單向)、比和(宮五行同)、同宮,任一即中
+    const bihe = palaceRel(y.yong, y.target, chart, '比和')
+    const rel = bihe
+      ? { pair: bihe, name: '比和' as const }
+      : (() => {
+          const s = palaceRel(y.yong, y.target, chart, '生')
+          return s ? { pair: s, name: '生' as const } : null
+        })()
     const common = commonPalaces()
     if (!rel && common.length === 0) return null
     const at =
       common.length > 0
         ? { palace: common[0], palaceName: chart.palaces[common[0] - 1].name }
-        : {}
+        : rel
+          ? { palace: rel.pair[0], palaceName: chart.palaces[rel.pair[0] - 1].name }
+          : {}
     const label = rel
       ? common.length > 0
-        ? `${rel}且同宮`
-        : rel
+        ? `${yl}${rel.name}${tl}且同宮`
+        : `${yl}${rel.name}${tl}`
       : `${yl}與${tl}同宮`
     return { kind: '用', label, ...at }
   }
-  const a = yongElement(y.yong, chart)
-  const b = yongElement(y.target, chart)
-  // 生剋皆分向:生=用神生目標,剋=用神剋目標(倒者換側表之);比和同行
-  const ok = relation === '生' ? sheng(a, b) : relation === '剋' ? ke(a, b) : a === b
-  return ok ? { kind: '用', label: `${yl}${relation}${tl}` } : null
+  // 生剋皆分向:生=用神宮生目標宮,剋=用神宮剋目標宮(倒者換側表之);比和=宮五行同
+  const pair = palaceRel(y.yong, y.target, chart, relation)
+  if (!pair) return null
+  return {
+    kind: '用',
+    label: `${yl}${relation}${tl}`,
+    palace: pair[0],
+    palaceName: chart.palaces[pair[0] - 1].name,
+  }
 }
 
 /** 十二長生單元(干之天盤落宮,任一落宮任一支合即中) */

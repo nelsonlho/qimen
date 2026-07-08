@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { GE_CATALOG, INTENT_PRESETS, searchGe } from '../search'
 import { analyzeChart } from '../analysis'
 import { computeChart } from '../pan'
-import { BRANCH_ELEMENT, PALACE_ELEMENT, STEM_ELEMENT, ke, seasonStrength, sheng } from '../wuxing'
+import { BRANCH_ELEMENT, PALACE_ELEMENT, ke, seasonStrength, sheng } from '../wuxing'
 import type { Stage } from '../changsheng'
 import type { DateParts } from '../types'
 
@@ -22,6 +22,65 @@ function* scanHours(days: number): Generator<DateParts> {
       yield { year: dt.getFullYear(), month: dt.getMonth() + 1, day: dt.getDate(), hour: h, minute: 0 }
     }
   }
+}
+
+/** 逐局迭代:鏡 searchGe 之步進(每時去重),與其命中representative 全齊 */
+function* eachJu(days: number): Generator<{ parts: DateParts; chart: ReturnType<typeof computeChart> }> {
+  let last = ''
+  for (let h = 0; h < days * 24; h++) {
+    const dt = new Date(2026, 6, 6, h)
+    const parts: DateParts = {
+      year: dt.getFullYear(),
+      month: dt.getMonth() + 1,
+      day: dt.getDate(),
+      hour: dt.getHours(),
+      minute: 0,
+    }
+    let chart
+    try {
+      chart = computeChart(parts)
+    } catch {
+      continue
+    }
+    const key = `${chart.pillars.day}|${chart.pillars.hour}|${chart.ju.dun}${chart.ju.ju}|${chart.ju.ke ?? ''}`
+    if (key === last) continue
+    last = key
+    yield { parts, chart }
+  }
+}
+
+type Sym = { door?: string; star?: string; god?: string; sky?: string; earth?: string }
+
+/** 符號落宮(門/星/神;sky=天盤干;earth=地盤干) */
+function palOf(chart: ReturnType<typeof computeChart>, s: Sym): number[] {
+  const out: number[] = []
+  for (const p of chart.palaces) {
+    if (
+      (s.door && p.door === s.door) ||
+      (s.star && p.stars.includes(s.star)) ||
+      (s.god && p.god === s.god) ||
+      (s.sky && p.skyStems.includes(s.sky)) ||
+      (s.earth && p.earthStems.includes(s.earth))
+    )
+      out.push(p.palace)
+  }
+  return out
+}
+
+/** 落宮五行生剋比和:遍歷兩者落宮任一對合即真 */
+function palRel(
+  chart: ReturnType<typeof computeChart>,
+  a: Sym,
+  b: Sym,
+  kind: '生' | '剋' | '比和',
+): boolean {
+  for (const pa of palOf(chart, a))
+    for (const pb of palOf(chart, b)) {
+      const ea = PALACE_ELEMENT[pa]
+      const eb = PALACE_ELEMENT[pb]
+      if (kind === '生' ? sheng(ea, eb) : kind === '剋' ? ke(ea, eb) : ea === eb) return true
+    }
+  return false
 }
 
 describe('擇時反查', () => {
@@ -124,98 +183,67 @@ describe('擇時反查', () => {
     expect(searchGe({ wang: [{ palace: badPalace, accept: ['旺', '相'] }] }, START, endAfter(1))).toEqual([])
   })
 
-  it('用神生干:開門(金)生日干 ⇔ 日干屬水', () => {
-    const days = 12 // 逾一旬,必有壬癸日
+  it('用神生:開門宮五行生日干宮五行(落宮論,非門五行)', () => {
+    const days = 12
     const hits = searchGe(
       { yong: [{ yong: { kind: '門', name: '開門' }, target: { kind: '柱', pillar: 'day' } }] },
       START,
       endAfter(days),
     )
-    expect(hits.length).toBeGreaterThan(0)
-    // 與手動掃描全然一致
+    // 手掃:開門所在宮五行 生 日干天盤所在宮五行
     const expected = new Set<string>()
-    for (const parts of scanHours(days)) {
-      const chart = computeChart(parts)
-      if (sheng('金', STEM_ELEMENT[chart.pillars.day[0]])) {
-        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
+    for (const { parts, chart } of eachJu(days)) {
+      if (palRel(chart, { door: '開門' }, { sky: chart.pillars.day[0] }, '生')) {
+        expected.add(`${parts.day}|${chart.pillars.hour}`)
       }
     }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
     for (const h of hits) {
       expect(h.matches.some((m) => m.kind === '用' && m.label === '開門生日干')).toBe(true)
     }
-    // 命中數 = 手掃數(時辰去重後)
-    expect(hits.length).toBe(expected.size)
   })
 
-  it('用神生年命:壬水生甲木,恆真,全時辰列', () => {
+  it('用神比和:兩者落宮五行相同(落宮論)', () => {
+    const days = 5
     const hits = searchGe(
-      { yong: [{ yong: { kind: '干', stem: '壬' }, target: { kind: '命', stem: '甲' } }] },
+      { yong: [{ yong: { kind: '天盤干', stem: '戊' }, relation: '比和', target: { kind: '命', stem: '己' } }] },
       START,
-      endAfter(1),
+      endAfter(days),
     )
-    expect(hits.length).toBeGreaterThanOrEqual(12)
-    // 反例:甲木不生壬水
-    expect(
-      searchGe(
-        { yong: [{ yong: { kind: '干', stem: '甲' }, target: { kind: '命', stem: '壬' } }] },
-        START,
-        endAfter(1),
-      ),
-    ).toEqual([])
+    const expected = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      if (palRel(chart, { sky: '戊' }, { sky: '己' }, '比和')) {
+        expected.add(`${parts.day}|${chart.pillars.hour}`)
+      }
+    }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+    for (const h of hits) {
+      expect(h.matches.some((m) => m.label === '天盤戊比和年命己')).toBe(true)
+    }
   })
 
-  it('用神比和:戊土比和年命己土恆真;甲木比和庚金恆假', () => {
-    const hits = searchGe(
-      { yong: [{ yong: { kind: '干', stem: '戊' }, relation: '比和', target: { kind: '命', stem: '己' } }] },
-      START,
-      endAfter(1),
-    )
-    expect(hits.length).toBeGreaterThanOrEqual(12)
-    expect(hits.every((h) => h.matches.some((m) => m.label === '戊比和年命己'))).toBe(true)
-    expect(
-      searchGe(
-        { yong: [{ yong: { kind: '干', stem: '甲' }, relation: '比和', target: { kind: '命', stem: '庚' } }] },
-        START,
-        endAfter(1),
-      ),
-    ).toEqual([])
-  })
-
-  it('用神剋:年命庚金剋甲木;方向不可倒,倒者換側表之', () => {
-    // 年命亦可為用神側
-    const kehits = searchGe(
-      { yong: [{ yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } }] },
-      START,
-      endAfter(1),
-    )
-    expect(kehits.length).toBeGreaterThanOrEqual(12)
-    expect(kehits.every((h) => h.matches.some((m) => m.label === '年命庚剋年命甲'))).toBe(true)
-    // 倒向恆假(「被剋」即換側,無專項)
-    expect(
-      searchGe(
-        { yong: [{ yong: { kind: '命', stem: '甲' }, relation: '剋', target: { kind: '命', stem: '庚' } }] },
-        START,
-        endAfter(1),
-      ),
-    ).toEqual([])
-  })
-
-  it('用神剋盤之日干:與手掃全等', () => {
-    const days = 12
-    const hits = searchGe(
+  it('用神剋:用神宮剋目標宮,分向;倒向換側表之', () => {
+    const days = 5
+    const fwd = searchGe(
       { yong: [{ yong: { kind: '柱', pillar: 'hour' }, relation: '剋', target: { kind: '柱', pillar: 'day' } }] },
       START,
       endAfter(days),
     )
     const expected = new Set<string>()
-    for (const parts of scanHours(days)) {
-      const chart = computeChart(parts)
-      if (ke(STEM_ELEMENT[chart.pillars.hour[0]], STEM_ELEMENT[chart.pillars.day[0]])) {
-        expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
-      }
+    const revExp = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      const k = `${parts.day}|${chart.pillars.hour}`
+      if (palRel(chart, { sky: chart.pillars.hour[0] }, { sky: chart.pillars.day[0] }, '剋')) expected.add(k)
+      if (palRel(chart, { sky: chart.pillars.day[0] }, { sky: chart.pillars.hour[0] }, '剋')) revExp.add(k)
     }
-    expect(hits.length).toBe(expected.size)
-    expect(hits.length).toBeGreaterThan(0)
+    expect(new Set(fwd.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+    // 倒向:日干宮剋時干宮,自成一集(分向)
+    const rev = searchGe(
+      { yong: [{ yong: { kind: '柱', pillar: 'day' }, relation: '剋', target: { kind: '柱', pillar: 'hour' } }] },
+      START,
+      endAfter(days),
+    )
+    expect(new Set(rev.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(revExp)
   })
 
   it('用神同宮:開門與日干同宮 ⇔ 開門宮天盤有日干', () => {
@@ -323,35 +351,30 @@ describe('擇時反查', () => {
   })
 
   it('必宜:必者硬濾,宜者計分不淘汰', () => {
-    const alwaysTrue = { yong: { kind: '命', stem: '庚' }, relation: '剋', target: { kind: '命', stem: '甲' } } as const
-    const alwaysFalse = { yong: { kind: '命', stem: '甲' }, relation: '剋', target: { kind: '命', stem: '庚' } } as const
+    // 坤二(土)於午月相、未月旺,恆旺相為真;坎一(水)於午月囚、未月死,恆非旺相為假
+    const T = { palace: 2, accept: ['旺', '相'] as ('旺' | '相')[] }
+    const F = { palace: 1, accept: ['旺', '相'] as ('旺' | '相')[] }
     // 必之假 → 全棄
-    expect(
-      searchGe({ yong: [{ ...alwaysFalse, required: true }, alwaysTrue] }, START, endAfter(1)),
-    ).toEqual([])
+    expect(searchGe({ wang: [{ ...F, required: true }, T] }, START, endAfter(1))).toEqual([])
     // 宜真宜假並列 → 恆中,僅列成立之條,分 1/2
-    const hits = searchGe({ yong: [alwaysTrue, alwaysFalse] }, START, endAfter(1))
+    const hits = searchGe({ wang: [T, F] }, START, endAfter(1))
     expect(hits.length).toBeGreaterThanOrEqual(12)
     for (const h of hits) {
       expect(h.score).toBe(1)
       expect(h.optTotal).toBe(2)
-      expect(h.matches.some((m) => m.label === '年命庚剋年命甲')).toBe(true)
-      expect(h.matches.some((m) => m.label === '年命甲剋年命庚')).toBe(false)
+      expect(h.matches.some((m) => m.kind === '旺' && m.palace === 2)).toBe(true)
+      expect(h.matches.some((m) => m.palace === 9)).toBe(false)
     }
     // 必真宜假 → 恆中,分 0/1,必者列於命中
-    const h2 = searchGe(
-      { yong: [{ ...alwaysTrue, required: true }, alwaysFalse] },
-      START,
-      endAfter(1),
-    )
+    const h2 = searchGe({ wang: [{ ...T, required: true }, F] }, START, endAfter(1))
     expect(h2.length).toBeGreaterThanOrEqual(12)
     for (const h of h2) {
       expect(h.score).toBe(0)
       expect(h.optTotal).toBe(1)
-      expect(h.matches.some((m) => m.label === '年命庚剋年命甲')).toBe(true)
+      expect(h.matches.some((m) => m.palace === 2)).toBe(true)
     }
     // 唯宜且全不中 → 不列
-    expect(searchGe({ yong: [alwaysFalse] }, START, endAfter(1))).toEqual([])
+    expect(searchGe({ wang: [F] }, START, endAfter(1))).toEqual([])
   })
 
   it('宜不弛格局之關:格仍須中', () => {
@@ -387,26 +410,16 @@ describe('擇時反查', () => {
       const m = h.matches.find((x) => x.kind === '用')!
       expect(/(開門生日干|開門比和日干)(且同宮)?$|開門與日干同宮$/.test(m.label)).toBe(true)
     }
-    // 反向之生不入合條:日干生開門(日干土→金)之時辰,若無正向/比和/同宮,不列
-    const rev = new Set(
-      searchGe(
-        { yong: [{ yong: day, target: door, relation: '生', required: true } as never] },
-        START,
-        endAfter(days),
-      ).map((h) => `${h.date.day}|${h.hourGZ}`),
+    // 反向之生(日干宮生開門宮)不入合條,除非亦正向/比和/同宮
+    const rev = searchGe(
+      { yong: [{ yong: day, target: door, relation: '生', required: true } as never] },
+      START,
+      endAfter(days),
     )
     const comboKeys = new Set(combo.map((h) => `${h.date.day}|${h.hourGZ}`))
-    // 反向專有(日干屬土)而非同宮者,不當在合條中
-    for (const parts of scanHours(days)) {
-      const chart = computeChart(parts)
-      const dayEl = STEM_ELEMENT[chart.pillars.day[0]]
-      const kaimen = chart.palaces.find((p) => p.door === '開門')
-      const coloc = !!kaimen?.skyStems.includes(chart.pillars.day[0])
-      const k = `${parts.day}|${chart.pillars.hour}`
-      if (dayEl === '土' && !coloc) {
-        expect(rev.has(k)).toBe(true) // 反向確含之
-        expect(comboKeys.has(k)).toBe(false) // 合條不含
-      }
+    for (const h of rev) {
+      const k = `${h.date.day}|${h.hourGZ}`
+      if (!union.has(k)) expect(comboKeys.has(k)).toBe(false)
     }
   })
 
@@ -418,7 +431,7 @@ describe('擇時反查', () => {
     const geKeys = new Set(geOnly.map((h) => `${h.date.day}|${h.hourGZ}`))
     for (const h of both) {
       expect(geKeys.has(`${h.date.day}|${h.hourGZ}`)).toBe(true)
-      // 生門土生時干 → 時干必屬金
+      // 生門宮五行生時干宮五行(落宮論)
       expect(h.matches.some((m) => m.label === '生門生時干')).toBe(true)
     }
   })
