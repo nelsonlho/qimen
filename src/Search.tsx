@@ -49,10 +49,17 @@ const COND_PALACES: [number, string][] = [
   [6, '乾六'], [7, '兌七'], [8, '艮八'], [9, '離九'],
 ];
 
+/** 落宮可用九宮(飛盤/鳴法用神可落中五) */
+const LUO_PALACES: [number, string][] = [
+  [1, '坎一'], [2, '坤二'], [3, '震三'], [4, '巽四'], [5, '中五'],
+  [6, '乾六'], [7, '兌七'], [8, '艮八'], [9, '離九'],
+];
+
 const PILLAR_KEYS: PillarKey[] = ['year', 'month', 'day', 'hour'];
 
 /** 用神選項編碼:kind:name。兩側同單,互為生剋比和同宮 */
 const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
+  { group: '合門', items: [['三吉門', '三吉門(開休生)']] as [string, string][] },
   { group: '八門', items: DOOR_NAMES.map((n) => [`門:${n}`, n] as [string, string]) },
   { group: '九星', items: STAR_NAMES.map((n) => [`星:${n}`, n] as [string, string]) },
   { group: '八神', items: GOD_NAMES.map((n) => [`神:${n}`, n] as [string, string]) },
@@ -65,6 +72,7 @@ const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
 
 function decodeYong(v: string, year: number): YongShen {
   if (v === '命') return { kind: '命', stem: yearStem(year) };
+  if (v === '三吉門') return { kind: '三吉門' };
   const [kind, rest] = v.split(':') as [string, string];
   if (kind === '天') return { kind: '天盤干', stem: rest };
   if (kind === '地') return { kind: '地盤干', stem: rest };
@@ -99,6 +107,13 @@ interface CsRow {
   stem: string; // 柱:day… 或 命
   stage: string; // 長生…養,或 '四吉'
   year: number;
+  req: boolean;
+}
+
+interface LuoRow {
+  yong: string; // 用神編碼
+  palace: number; // 落宮
+  year: number; // 年命之生年
   req: boolean;
 }
 
@@ -174,6 +189,7 @@ export default function Search({
   const [wangRows, setWangRows] = useState<WangRow[]>([]);
   const [yongRows, setYongRows] = useState<YongRow[]>([]);
   const [csRows, setCsRows] = useState<CsRow[]>([]);
+  const [luoRows, setLuoRows] = useState<LuoRow[]>([]);
   const [fromDate, setFromDate] = useState(() => toDateStr(new Date()));
   const [toDate, setToDate] = useState(() =>
     toDateStr(new Date(Date.now() + 7 * 86400_000)),
@@ -217,7 +233,8 @@ export default function Search({
     reset();
   };
 
-  const condCount = geSel.size + wangRows.length + yongRows.length + csRows.length;
+  const condCount =
+    geSel.size + wangRows.length + yongRows.length + csRows.length + luoRows.length;
 
   // 宮旺預警:月令範圍內恆不合者,搜前即示
   const wangWarns = useMemo(() => {
@@ -289,6 +306,11 @@ export default function Search({
         stem: decodeStemRef(c.stem, c.year),
         stages: c.stage === '四吉' ? SI_JI : [c.stage as Stage],
         required: c.req || undefined,
+      })),
+      luo: luoRows.map((l) => ({
+        yong: decodeYong(l.yong, l.year),
+        palace: l.palace,
+        required: l.req || undefined,
       })),
     };
     setResults(
@@ -698,6 +720,84 @@ export default function Search({
                   </button>
                 </div>
               ))}
+              {luoRows.map((l, i) => (
+                <div className="cond-row" key={`l${i}`}>
+                  <ReqToggle
+                    req={l.req}
+                    onChange={(v) => {
+                      const rows = [...luoRows];
+                      rows[i] = { ...l, req: v };
+                      setLuoRows(rows);
+                      reset();
+                    }}
+                  />
+                  <strong>落宮</strong>
+                  <select
+                    value={l.yong}
+                    onChange={(e) => {
+                      const rows = [...luoRows];
+                      rows[i] = { ...l, yong: e.target.value };
+                      setLuoRows(rows);
+                      reset();
+                    }}
+                  >
+                    {YONG_OPTIONS.map((g) => (
+                      <optgroup label={g.group} key={g.group}>
+                        {g.items.map(([v, label]) => (
+                          <option value={v} key={v}>
+                            {label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  落
+                  <select
+                    value={l.palace}
+                    onChange={(e) => {
+                      const rows = [...luoRows];
+                      rows[i] = { ...l, palace: +e.target.value };
+                      setLuoRows(rows);
+                      reset();
+                    }}
+                  >
+                    {LUO_PALACES.map(([p, n]) => (
+                      <option value={p} key={p}>
+                        {n}宮
+                      </option>
+                    ))}
+                  </select>
+                  {l.yong === '命' && (
+                    <label>
+                      生年
+                      <input
+                        type="number"
+                        className="year-input"
+                        value={l.year}
+                        min={1900}
+                        max={2100}
+                        onChange={(e) => {
+                          const rows = [...luoRows];
+                          rows[i] = { ...l, year: +e.target.value };
+                          setLuoRows(rows);
+                          reset();
+                        }}
+                      />
+                      <span className="year-stem">{yearStem(l.year)}年</span>
+                    </label>
+                  )}
+                  <button
+                    className="cond-del"
+                    onClick={() => {
+                      setLuoRows(luoRows.filter((_, j) => j !== i));
+                      reset();
+                    }}
+                    aria-label="刪"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
               <div className="cond-add">
                 <button
                   onClick={() => {
@@ -725,6 +825,17 @@ export default function Search({
                   }}
                 >
                   +長生
+                </button>
+                <button
+                  onClick={() => {
+                    setLuoRows([
+                      ...luoRows,
+                      { yong: '三吉門', palace: 1, year: 1990, req: false },
+                    ]);
+                    reset();
+                  }}
+                >
+                  +落宮
                 </button>
               </div>
               <div className="cond-row avoid-row">

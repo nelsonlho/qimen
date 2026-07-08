@@ -496,6 +496,62 @@ describe('擇時反查', () => {
     expect(atHour(searchGe(query, START, endAfter(20), { avoid: { wuBuYuShi: true } }))).toBe(false)
   })
 
+  it('三吉門用神:開/休/生其一即可,同宮與手掃全等', () => {
+    const days = 5
+    const hits = searchGe(
+      { yong: [{ yong: { kind: '三吉門' }, relation: '同宮', target: { kind: '柱', pillar: 'day' } }] },
+      START,
+      endAfter(days),
+    )
+    const expected = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      // 三吉門任一與日干天盤同宮
+      const dayP = new Set(palOf(chart, { sky: chart.pillars.day[0] }))
+      const hit = chart.palaces.some(
+        (p) => p.door && ['開門', '休門', '生門'].includes(p.door) && dayP.has(p.palace),
+      )
+      if (hit) expected.add(`${parts.day}|${chart.pillars.hour}`)
+    }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+    for (const h of hits) {
+      expect(h.matches.some((m) => m.label.startsWith('三吉門'))).toBe(true)
+    }
+  })
+
+  it('用神落宮過濾:生門落坎一 ⇔ 該時生門在坎一', () => {
+    const days = 8
+    const hits = searchGe(
+      { luo: [{ yong: { kind: '門', name: '生門' }, palace: 1 }] },
+      START,
+      endAfter(days),
+    )
+    const expected = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      if (chart.palaces.find((p) => p.door === '生門')?.palace === 1) {
+        expected.add(`${parts.day}|${chart.pillars.hour}`)
+      }
+    }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+    expect(hits.every((h) => h.matches.some((m) => m.label === '生門落坎一'))).toBe(true)
+  })
+
+  it('三吉門落宮:開休生任一落指定宮即中', () => {
+    const days = 5
+    const hits = searchGe(
+      { luo: [{ yong: { kind: '三吉門' }, palace: 8 }] },
+      START,
+      endAfter(days),
+    )
+    const expected = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      const p8 = chart.palaces[7].door
+      if (p8 && ['開門', '休門', '生門'].includes(p8)) {
+        expected.add(`${parts.day}|${chart.pillars.hour}`)
+      }
+    }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+  })
+
   it('八刻法逐刻掃描,ke 有值', () => {
     const hits = searchGe({ ge: GE_CATALOG.map((e) => ({ name: e.name })) }, START, endAfter(1), { method: '八刻' })
     expect(hits.length).toBeGreaterThan(0)

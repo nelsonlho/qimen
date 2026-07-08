@@ -100,6 +100,11 @@ export type YongShen =
   | { kind: '干'; stem: string }
   | { kind: '柱'; pillar: PillarKey }
   | { kind: '命'; stem: string }
+  /** 三吉門:開/休/生門,其一即可 */
+  | { kind: '三吉門' }
+
+/** 三吉門 */
+export const SAN_JI_MEN = ['開門', '休門', '生門']
 
 /** 干之指涉:盤之四柱干,或用家年命干 */
 export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string }
@@ -131,6 +136,14 @@ export interface ChangShengCond {
   required?: boolean
 }
 
+/** 用神落宮條件:用神落於指定宮(三吉門則其一落之即可) */
+export interface LuoCond {
+  yong: YongShen
+  palace: number
+  /** 必者硬濾,宜者計分;缺省宜 */
+  required?: boolean
+}
+
 /**
  * 查詢:ge 列擇一即可(任一命中即列)。
  * wang/yong/changsheng 各為一單元:required 者全須成立(硬濾);
@@ -142,6 +155,7 @@ export interface SearchQuery {
   wang?: WangCond[]
   yong?: YongCond[]
   changsheng?: ChangShengCond[]
+  luo?: LuoCond[]
 }
 
 export interface AvoidOptions {
@@ -196,6 +210,8 @@ export function yongLabel(y: YongShen): string {
       return `年命${y.stem}`
     case '柱':
       return PILLAR_LABEL[y.pillar]
+    case '三吉門':
+      return '三吉門'
   }
 }
 
@@ -227,6 +243,9 @@ function yongPalaces(y: YongShen, chart: Chart): number[] {
         break
       case '柱':
         if (info.skyStems.includes(chart.pillars[y.pillar][0])) out.push(info.palace)
+        break
+      case '三吉門':
+        if (info.door && SAN_JI_MEN.includes(info.door)) out.push(info.palace)
         break
     }
   }
@@ -264,7 +283,8 @@ function hasQuery(q: SearchQuery): boolean {
     (q.ge?.length ?? 0) +
       (q.wang?.length ?? 0) +
       (q.yong?.length ?? 0) +
-      (q.changsheng?.length ?? 0) >
+      (q.changsheng?.length ?? 0) +
+      (q.luo?.length ?? 0) >
     0
   )
 }
@@ -388,6 +408,13 @@ function evalChangSheng(c: ChangShengCond, chart: Chart, ana: ChartAnalysis): Se
   return null
 }
 
+/** 用神落宮單元 */
+function evalLuo(c: LuoCond, chart: Chart): SearchMatch | null {
+  if (!yongPalaces(c.yong, chart).includes(c.palace)) return null
+  const name = chart.palaces[c.palace - 1].name
+  return { kind: '用', label: `${yongLabel(c.yong)}落${name}`, palace: c.palace, palaceName: name }
+}
+
 interface EvalResult {
   matches: SearchMatch[]
   score: number
@@ -439,6 +466,7 @@ function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): EvalR
   for (const w of query.wang ?? []) put(w.required, evalWang(w, chart, seasonElem))
   for (const y of query.yong ?? []) put(y.required, evalYong(y, chart))
   for (const c of query.changsheng ?? []) put(c.required, evalChangSheng(c, chart, ana))
+  for (const l of query.luo ?? []) put(l.required, evalLuo(l, chart))
 
   if (req.some((u) => u === null)) return null
   const optHit = opt.filter((u): u is SearchMatch => u !== null)
