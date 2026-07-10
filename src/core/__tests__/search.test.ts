@@ -632,6 +632,73 @@ describe('擇時反查', () => {
     throw new Error('窗內無甲時,測試無效')
   })
 
+  it('條件組:同組或(任一即可),異組且(皆須),與手掃全等', () => {
+    const days = 5
+    // 組1:開門生日干 或 休門生日干;組2:生門落坎 或 生門落坤
+    const hits = searchGe(
+      {
+        yong: [
+          { yong: { kind: '門', name: '開門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+          { yong: { kind: '門', name: '休門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+        ],
+        luo: [
+          { yong: { kind: '門', name: '生門' }, palace: 1, group: 2 },
+          { yong: { kind: '門', name: '生門' }, palace: 2, group: 2 },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    const expected = new Set<string>()
+    for (const { parts, chart } of eachJu(days)) {
+      const dayS = pillarStem(chart.pillars.day)
+      const g1 =
+        palRel(chart, { door: '開門' }, { sky: dayS }, '生') ||
+        palRel(chart, { door: '休門' }, { sky: dayS }, '生')
+      const shengP = chart.palaces.find((p) => p.door === '生門')?.palace
+      const g2 = shengP === 1 || shengP === 2
+      if (g1 && g2) expected.add(`${parts.day}|${chart.pillars.hour}`)
+    }
+    expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+    // 單組空(全不中)⇔ 整體不列:組2 換為生門落中五(轉盤永無)
+    const none = searchGe(
+      {
+        yong: [
+          { yong: { kind: '門', name: '開門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+          { yong: { kind: '門', name: '休門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+        ],
+        luo: [{ yong: { kind: '門', name: '生門' }, palace: 5, group: 2 }],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(none).toEqual([])
+  })
+
+  it('條件組:組不計宜分,宜照舊計;組員命中皆入 matches', () => {
+    const days = 3
+    const hits = searchGe(
+      {
+        yong: [
+          { yong: { kind: '門', name: '開門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+          { yong: { kind: '門', name: '休門' }, target: { kind: '柱', pillar: 'day' }, group: 1 },
+          // 宜:天盤戊比和年命己(獨立計分)
+          { yong: { kind: '天盤干', stem: '戊' }, relation: '比和', target: { kind: '命', stem: '己' } },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(hits.length).toBeGreaterThan(0)
+    for (const h of hits) {
+      expect(h.optTotal).toBe(1) // 組員不入宜總
+      expect(h.score).toBeLessThanOrEqual(1)
+      expect(
+        h.matches.some((m) => m.label === '開門生日干' || m.label === '休門生日干'),
+      ).toBe(true)
+    }
+  })
+
   it('八刻法逐刻掃描,ke 有值', () => {
     const hits = searchGe({ ge: GE_CATALOG.map((e) => ({ name: e.name })) }, START, endAfter(1), { method: '八刻' })
     expect(hits.length).toBeGreaterThan(0)

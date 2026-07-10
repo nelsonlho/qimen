@@ -88,6 +88,8 @@ export interface WangCond {
   accept: ('旺' | '相')[]
   /** 必者硬濾,宜者計分;缺省宜 */
   required?: boolean
+  /** 條件組:同組任一成立即可(或),異組皆須(且);設組則 required 不論 */
+  group?: number
 }
 
 /**
@@ -128,6 +130,8 @@ export interface YongCond {
   relation?: YongRelation
   /** 必者硬濾,宜者計分;缺省宜 */
   required?: boolean
+  /** 條件組:同組任一成立即可(或),異組皆須(且);設組則 required 不論 */
+  group?: number
 }
 
 /** 十二長生條件:某干(天盤落宮之支)處某長生階段,任一落宮任一支合即中 */
@@ -136,6 +140,8 @@ export interface ChangShengCond {
   stages: Stage[]
   /** 必者硬濾,宜者計分;缺省宜 */
   required?: boolean
+  /** 條件組:同組任一成立即可(或),異組皆須(且);設組則 required 不論 */
+  group?: number
 }
 
 /** 用神落宮條件:用神落於指定宮(三吉門則其一落之即可) */
@@ -144,12 +150,16 @@ export interface LuoCond {
   palace: number
   /** 必者硬濾,宜者計分;缺省宜 */
   required?: boolean
+  /** 條件組:同組任一成立即可(或),異組皆須(且);設組則 required 不論 */
+  group?: number
 }
 
 /**
  * 查詢:ge 列擇一即可(任一命中即列)。
- * wang/yong/changsheng 各為一單元:required 者全須成立(硬濾);
- * 餘者計分不淘汰 — 唯全查詢無格無必時,至少須中一宜方列。
+ * wang/yong/changsheng/luo 各為一單元:required 者全須成立(硬濾);
+ * 餘者計分不淘汰 — 唯全查詢無格無必無組時,至少須中一宜方列。
+ * 條件組(且組正規形):設 group 者按組聚合,同組任一成立即可(或),
+ * 各組皆須成立(且)——凡布林式皆可拆平為此形,無須巢狀。
  * 皆空 → 空結果。
  */
 export interface SearchQuery {
@@ -467,21 +477,33 @@ function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): EvalR
   const seasonElem = BRANCH_ELEMENT[chart.pillars.month[1]]
   const req: (SearchMatch | null)[] = []
   const opt: (SearchMatch | null)[] = []
-  const put = (required: boolean | undefined, m: SearchMatch | null) =>
-    (required ? req : opt).push(m)
+  // 條件組:同組任一成立即可(或),各組皆須(且);組員不計宜分
+  const groups = new Map<number, SearchMatch[]>()
+  const put = (c: { required?: boolean; group?: number }, m: SearchMatch | null) => {
+    if (c.group != null) {
+      const arr = groups.get(c.group) ?? []
+      if (m) arr.push(m)
+      groups.set(c.group, arr)
+    } else {
+      ;(c.required ? req : opt).push(m)
+    }
+  }
 
-  for (const w of query.wang ?? []) put(w.required, evalWang(w, chart, seasonElem))
-  for (const y of query.yong ?? []) put(y.required, evalYong(y, chart))
-  for (const c of query.changsheng ?? []) put(c.required, evalChangSheng(c, chart, ana))
-  for (const l of query.luo ?? []) put(l.required, evalLuo(l, chart))
+  for (const w of query.wang ?? []) put(w, evalWang(w, chart, seasonElem))
+  for (const y of query.yong ?? []) put(y, evalYong(y, chart))
+  for (const c of query.changsheng ?? []) put(c, evalChangSheng(c, chart, ana))
+  for (const l of query.luo ?? []) put(l, evalLuo(l, chart))
 
   if (req.some((u) => u === null)) return null
+  for (const arr of groups.values()) {
+    if (arr.length === 0) return null
+  }
   const optHit = opt.filter((u): u is SearchMatch => u !== null)
-  // 無格無必而有宜者,至少中一宜方列,免全表皆時辰
-  if (!query.ge?.length && req.length === 0 && opt.length > 0 && optHit.length === 0) {
+  // 無格無必無組而有宜者,至少中一宜方列,免全表皆時辰
+  if (!query.ge?.length && req.length === 0 && groups.size === 0 && opt.length > 0 && optHit.length === 0) {
     return null
   }
-  matches.push(...(req as SearchMatch[]), ...optHit)
+  matches.push(...(req as SearchMatch[]), ...[...groups.values()].flat(), ...optHit)
 
   return { matches, score: optHit.length, optTotal: opt.length }
 }

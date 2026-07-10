@@ -99,6 +99,7 @@ interface WangRow {
   palace: number;
   accept: '旺相' | '旺' | '相';
   req: boolean; // 必者硬濾,宜者計分
+  group: number; // 條件組:0 無;同組任一成立即可(或),異組皆須(且)
 }
 
 interface YongRow {
@@ -107,6 +108,7 @@ interface YongRow {
   target: string; // 柱:day… 或 命
   year: number; // 年命之生年
   req: boolean;
+  group: number;
 }
 
 interface CsRow {
@@ -114,6 +116,7 @@ interface CsRow {
   stage: string; // 長生…養,或 '四吉'
   year: number;
   req: boolean;
+  group: number;
 }
 
 interface LuoRow {
@@ -121,18 +124,41 @@ interface LuoRow {
   palace: number; // 落宮
   year: number; // 年命之生年
   req: boolean;
+  group: number;
 }
 
-/** 必/宜切換鈕 */
-function ReqToggle({ req, onChange }: { req: boolean; onChange: (v: boolean) => void }) {
+const GROUP_MARKS = ['①', '②', '③', '④', '⑤'];
+
+/** 宜/必/組 三態選:宜計分、必硬濾、組=同組任一成立即可(或),異組皆須(且) */
+function ModeSelect({
+  req,
+  group,
+  onChange,
+}: {
+  req: boolean;
+  group: number;
+  onChange: (req: boolean, group: number) => void;
+}) {
+  const value = group > 0 ? `g${group}` : req ? '必' : '宜';
   return (
-    <button
-      className={`req-toggle${req ? ' req' : ''}`}
-      title={req ? '必:非有不可,無此則不列' : '宜:有則更佳,合多者列前'}
-      onClick={() => onChange(!req)}
+    <select
+      className={`mode-select${group > 0 ? ` grp-${group}` : req ? ' req' : ''}`}
+      value={value}
+      title="宜:有則加分排前。必:沒有就不列。組:同組備選中一即可,每組都要成立"
+      onChange={(e) => {
+        const v = e.target.value;
+        if (v.startsWith('g')) onChange(false, +v.slice(1));
+        else onChange(v === '必', 0);
+      }}
     >
-      {req ? '必' : '宜'}
-    </button>
+      <option value="宜">宜</option>
+      <option value="必">必</option>
+      {GROUP_MARKS.map((m, j) => (
+        <option value={`g${j + 1}`} key={j}>
+          組{m}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -301,22 +327,26 @@ export default function Search({
         palace: w.palace,
         accept: w.accept === '旺相' ? (['旺', '相'] as const) : [w.accept],
         required: w.req || undefined,
+        group: w.group || undefined,
       })),
       yong: yongRows.map((y) => ({
         yong: decodeYong(y.yong, y.year),
         relation: y.relation,
         target: decodeYong(y.target, y.year),
         required: y.req || undefined,
+        group: y.group || undefined,
       })),
       changsheng: csRows.map((c) => ({
         stem: decodeStemRef(c.stem, c.year),
         stages: c.stage === '四吉' ? SI_JI : [c.stage as Stage],
         required: c.req || undefined,
+        group: c.group || undefined,
       })),
       luo: luoRows.map((l) => ({
         yong: decodeYong(l.yong, l.year),
         palace: l.palace,
         required: l.req || undefined,
+        group: l.group || undefined,
       })),
     };
     setResults(
@@ -499,12 +529,13 @@ export default function Search({
             </div>
             <div className="cond-rows">
               {wangRows.map((w, i) => (
-                <div className="cond-row" key={`w${i}`}>
-                  <ReqToggle
+                <div className={`cond-row${w.group ? ` cond-grp-${w.group}` : ''}`} key={`w${i}`}>
+                  <ModeSelect
                     req={w.req}
-                    onChange={(v) => {
+                    group={w.group}
+                    onChange={(req, group) => {
                       const rows = [...wangRows];
-                      rows[i] = { ...w, req: v };
+                      rows[i] = { ...w, req, group };
                       setWangRows(rows);
                       reset();
                     }}
@@ -555,12 +586,13 @@ export default function Search({
                 </div>
               ))}
               {yongRows.map((y, i) => (
-                <div className="cond-row" key={`y${i}`}>
-                  <ReqToggle
+                <div className={`cond-row${y.group ? ` cond-grp-${y.group}` : ''}`} key={`y${i}`}>
+                  <ModeSelect
                     req={y.req}
-                    onChange={(v) => {
+                    group={y.group}
+                    onChange={(req, group) => {
                       const rows = [...yongRows];
-                      rows[i] = { ...y, req: v };
+                      rows[i] = { ...y, req, group };
                       setYongRows(rows);
                       reset();
                     }}
@@ -651,12 +683,13 @@ export default function Search({
                 </div>
               ))}
               {csRows.map((c, i) => (
-                <div className="cond-row" key={`c${i}`}>
-                  <ReqToggle
+                <div className={`cond-row${c.group ? ` cond-grp-${c.group}` : ''}`} key={`c${i}`}>
+                  <ModeSelect
                     req={c.req}
-                    onChange={(v) => {
+                    group={c.group}
+                    onChange={(req, group) => {
                       const rows = [...csRows];
-                      rows[i] = { ...c, req: v };
+                      rows[i] = { ...c, req, group };
                       setCsRows(rows);
                       reset();
                     }}
@@ -727,12 +760,13 @@ export default function Search({
                 </div>
               ))}
               {luoRows.map((l, i) => (
-                <div className="cond-row" key={`l${i}`}>
-                  <ReqToggle
+                <div className={`cond-row${l.group ? ` cond-grp-${l.group}` : ''}`} key={`l${i}`}>
+                  <ModeSelect
                     req={l.req}
-                    onChange={(v) => {
+                    group={l.group}
+                    onChange={(req, group) => {
                       const rows = [...luoRows];
-                      rows[i] = { ...l, req: v };
+                      rows[i] = { ...l, req, group };
                       setLuoRows(rows);
                       reset();
                     }}
@@ -807,7 +841,7 @@ export default function Search({
               <div className="cond-add">
                 <button
                   onClick={() => {
-                    setWangRows([...wangRows, { palace: 1, accept: '旺相', req: false }]);
+                    setWangRows([...wangRows, { palace: 1, accept: '旺相', req: false, group: 0 }]);
                     reset();
                   }}
                 >
@@ -817,7 +851,7 @@ export default function Search({
                   onClick={() => {
                     setYongRows([
                       ...yongRows,
-                      { yong: '門:開門', relation: '生', target: '柱:day', year: 1990, req: false },
+                      { yong: '門:開門', relation: '生', target: '柱:day', year: 1990, req: false, group: 0 },
                     ]);
                     reset();
                   }}
@@ -826,7 +860,7 @@ export default function Search({
                 </button>
                 <button
                   onClick={() => {
-                    setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990, req: false }]);
+                    setCsRows([...csRows, { stem: '柱:day', stage: '四吉', year: 1990, req: false, group: 0 }]);
                     reset();
                   }}
                 >
@@ -836,13 +870,19 @@ export default function Search({
                   onClick={() => {
                     setLuoRows([
                       ...luoRows,
-                      { yong: '三吉門', palace: 1, year: 1990, req: false },
+                      { yong: '三吉門', palace: 1, year: 1990, req: false, group: 0 },
                     ]);
                     reset();
                   }}
                 >
                   +落宮
                 </button>
+                {[...wangRows, ...yongRows, ...csRows, ...luoRows].some((r) => r.group > 0) && (
+                  <span className="cond-note">
+                    同色同組:組內備選,中一即可;每組都成立才列出。
+                    例:組①「開門生日干」「休門生日干」+組②「天遁」→ 開或休門生日干,且有天遁。
+                  </span>
+                )}
               </div>
               <div className="cond-row avoid-row">
                 <strong>避忌</strong>

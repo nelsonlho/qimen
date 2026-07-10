@@ -12,6 +12,7 @@ import {
   analyzeChart,
   chuanRen,
   computeChart,
+  pillarStem,
 } from './core';
 import type {
   Chart,
@@ -79,19 +80,53 @@ function toInputValue(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/** 日/時干所遁盤上用干(甲不上盤取六儀)→ 標記。同一儀可兼日時 */
+type StemMark = { label: string; jia?: string };
+function pillarMarks(chart: Chart): Record<string, StemMark[]> {
+  const out: Record<string, StemMark[]> = {};
+  for (const [pillar, label] of [
+    ['day', '日'],
+    ['hour', '時'],
+  ] as const) {
+    const gz = chart.pillars[pillar];
+    const stem = pillarStem(gz);
+    (out[stem] ??= []).push({ label, jia: gz[0] === '甲' ? gz : undefined });
+  }
+  return out;
+}
+
 function StemGroup({
   stems,
   stages,
+  marks,
 }: {
   stems: string[];
   stages: PalaceAnalysis['skyStages'];
+  marks?: Record<string, StemMark[]>;
 }) {
   return (
     <span className="stems">
       {stems.map((s) => {
         const st = stages.find((x) => x.stem === s);
+        const mk = marks?.[s];
         return (
-          <span className={`stem e-${STEM_ELEMENT[s]}`} key={s}>
+          <span
+            className={`stem e-${STEM_ELEMENT[s]}${mk ? ' stem-pillar' : ''}`}
+            key={s}
+          >
+            {mk && (
+              <i className="pillar-tag">
+                {mk.map((m) => (
+                  <b
+                    key={m.label}
+                    title={m.jia ? `${m.label}干${m.jia}(遁${s})` : `${m.label}干${s}`}
+                  >
+                    {m.label}
+                    {m.jia && <em>甲</em>}
+                  </b>
+                ))}
+              </i>
+            )}
             {s}
             {st && (
               <i className="cs">
@@ -133,6 +168,7 @@ function PalaceCell({
   order,
   globalGe,
   jiangMap,
+  marks,
 }: {
   info: PalaceInfo;
   chart: Chart;
@@ -146,6 +182,7 @@ function PalaceCell({
   order: number;
   globalGe: GeJu[];
   jiangMap: Record<string, TianJiang> | null;
+  marks: Record<string, StemMark[]>;
 }) {
   const cellStyle = { '--i': order } as CSSProperties;
   // 格底一行:左為暗干隱干,右為宮名——入流佈局,不壓正文
@@ -203,7 +240,9 @@ function PalaceCell({
               {info.stars.map((s) => s.slice(1)).join('')}
               {info.isZhiFu && <span className="tag tag-fu">符</span>}
             </span>
-            <span className="sky-stem">{info.skyStems.join('')}</span>
+            <span className="sky-stem">
+              <StemGroup stems={info.skyStems} stages={ana.skyStages} marks={marks} />
+            </span>
             <span className="door">
               {info.door ? info.door.slice(0, 1) : '無門'}
               {info.isZhiShi && <span className="tag tag-shi">使</span>}
@@ -211,7 +250,9 @@ function PalaceCell({
           </div>
         )}
         <div className="stem-row">
-          <span className="earth-stem">{info.earthStems.join('')}</span>
+          <span className="earth-stem">
+            <StemGroup stems={info.earthStems} stages={ana.earthStages} />
+          </span>
           {!isFly && <span className="ji-note">寄坤二</span>}
         </div>
         {globalGe.length > 0 && (
@@ -265,7 +306,7 @@ function PalaceCell({
           {info.isZhiFu && <span className="tag tag-fu">符</span>}
         </span>
         <span className="sky-stem">
-          <StemGroup stems={info.skyStems} stages={ana.skyStages} />
+          <StemGroup stems={info.skyStems} stages={ana.skyStages} marks={marks} />
         </span>
       </div>
       <div className="row">
@@ -759,6 +800,7 @@ export default function App() {
           </div>
 
           {(() => {
+            const marks = pillarMarks(chart);
             const board = (
               <div
                 className="board"
@@ -779,6 +821,7 @@ export default function App() {
                     showFeiZhi={showFeiZhi}
                     globalGe={ana.global}
                     jiangMap={jiangMap}
+                    marks={marks}
                   />
                 ))}
               </div>

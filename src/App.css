@@ -16,7 +16,8 @@
   --gold: #8f6f2a; /* 泥金 */
   --good: #3e7d4a;
   --muted: #8d8171;
-  --shadow: 0 10px 34px rgba(60, 45, 20, 0.14), 0 2px 8px rgba(60, 45, 20, 0.08);
+  --shadow:
+    0 10px 34px rgba(60, 45, 20, 0.14), 0 2px 8px rgba(60, 45, 20, 0.08);
   --shadow-soft: 0 4px 16px rgba(60, 45, 20, 0.08);
   color-scheme: light;
 }
@@ -78,14 +79,21 @@ html {
 body {
   margin: 0;
   color: var(--ink);
-  font-family: 'Songti TC', 'Noto Serif TC', 'Source Han Serif TC', 'PMingLiU', serif;
+  font-family:
+    'Songti TC', 'Noto Serif TC', 'Source Han Serif TC', 'PMingLiU', serif;
   background:
     radial-gradient(1200px 600px at 50% -10%, var(--cell) 0%, transparent 60%),
-    radial-gradient(900px 500px at 110% 110%, var(--paper-deep) 0%, transparent 55%),
+    radial-gradient(
+      900px 500px at 110% 110%,
+      var(--paper-deep) 0%,
+      transparent 55%
+    ),
     var(--paper);
   background-attachment: fixed;
   min-height: 100vh;
-  transition: background-color 0.35s ease, color 0.35s ease;
+  transition:
+    background-color 0.35s ease,
+    color 0.35s ease;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -182,7 +190,9 @@ h1 {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s;
 }
 
 .theme-switch button.on {
@@ -215,7 +225,10 @@ h1 {
   border-radius: 999px;
   background: var(--cell);
   color: var(--ink);
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
 }
 
 .controls input:focus-visible,
@@ -363,7 +376,9 @@ h1 {
   flex-direction: column;
   justify-content: space-around;
   cursor: pointer;
-  transition: background 0.25s ease, box-shadow 0.25s ease;
+  transition:
+    background 0.25s ease,
+    box-shadow 0.25s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -387,11 +402,15 @@ h1 {
 }
 
 .palace.zhifu.zhishi {
-  box-shadow: inset 0 0 0 2px var(--accent), inset 0 0 0 4px var(--accent2);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    inset 0 0 0 4px var(--accent2);
 }
 
 .palace.selected.zhifu {
-  box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 2px var(--accent2);
+  box-shadow:
+    inset 0 0 0 2px var(--accent),
+    0 0 0 2px var(--accent2);
 }
 
 .row {
@@ -409,7 +428,7 @@ h1 {
 }
 
 .god-row {
-  font-size: clamp(0.88rem, 3.6vw, 1.05rem);
+  font-size: clamp(0.88rem, 3.6vw, 1.45rem);
   color: var(--muted);
 }
 
@@ -452,6 +471,40 @@ h1 {
 /* 干與其上標不拆行 */
 .stem {
   white-space: nowrap;
+}
+
+/* 日/時干框記(甲不上盤,框其所遁六儀) */
+.stem-pillar {
+  position: relative;
+  padding: 0 3px;
+  border: 1.5px solid var(--accent2);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent2) 12%, transparent);
+}
+
+.pillar-tag {
+  font-style: normal;
+  font-weight: 700;
+  font-size: max(0.6em, 12px);
+  vertical-align: super;
+  margin-right: 1px;
+  letter-spacing: 0;
+  color: var(--accent2);
+}
+
+.pillar-tag b {
+  font-weight: 700;
+}
+
+.pillar-tag b + b {
+  margin-left: 1px;
+}
+
+/* 甲遁標:小字綴於柱記之後 */
+.pillar-tag em {
+  font-style: normal;
+  font-size: 0.75em;
+  opacity: 0.7;
 }
 
 .star,
@@ -660,7 +713,6 @@ h1 {
   font-weight: 600;
 }
 
-
 /* 門帶干:門旁小字 */
 .daigan {
   font-style: normal;
@@ -679,8 +731,11 @@ h1 {
   gap: 5px;
   text-align: center;
   cursor: default;
-  background:
-    radial-gradient(closest-side, var(--cell-raised) 0%, var(--cell) 90%);
+  background: radial-gradient(
+    closest-side,
+    var(--cell-raised) 0%,
+    var(--cell) 90%
+  );
 }
 
 .center-ju {
@@ -916,11 +971,12 @@ footer {
   letter-spacing: 0.05em;
 }
 
-.req-toggle {
+/* 宜/必/組三態選:宜青、必赤、入組者著組色 */
+.mode-select {
   font: inherit;
   font-size: 0.72rem;
   line-height: 1;
-  padding: 3px 7px;
+  padding: 3px 4px;
   border: 1px solid var(--accent2);
   border-radius: 999px;
   background: var(--accent2-soft);
@@ -928,10 +984,61 @@ footer {
   cursor: pointer;
 }
 
-.req-toggle.req {
+.mode-select.req {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+/* 條件組五色:同組同色,或也;異組相異,且也 */
+:root {
+  --grp-1: #7c5cd6;
+  --grp-2: #2a8f6d;
+  --grp-3: #c07a1f;
+  --grp-4: #b0508c;
+  --grp-5: #3d7fc1;
+}
+
+.mode-select.grp-1 {
+  border-color: var(--grp-1);
+  color: var(--grp-1);
+  background: color-mix(in srgb, var(--grp-1) 12%, transparent);
+}
+.mode-select.grp-2 {
+  border-color: var(--grp-2);
+  color: var(--grp-2);
+  background: color-mix(in srgb, var(--grp-2) 12%, transparent);
+}
+.mode-select.grp-3 {
+  border-color: var(--grp-3);
+  color: var(--grp-3);
+  background: color-mix(in srgb, var(--grp-3) 12%, transparent);
+}
+.mode-select.grp-4 {
+  border-color: var(--grp-4);
+  color: var(--grp-4);
+  background: color-mix(in srgb, var(--grp-4) 12%, transparent);
+}
+.mode-select.grp-5 {
+  border-color: var(--grp-5);
+  color: var(--grp-5);
+  background: color-mix(in srgb, var(--grp-5) 12%, transparent);
+}
+
+.cond-grp-1 {
+  box-shadow: inset 3px 0 0 var(--grp-1);
+}
+.cond-grp-2 {
+  box-shadow: inset 3px 0 0 var(--grp-2);
+}
+.cond-grp-3 {
+  box-shadow: inset 3px 0 0 var(--grp-3);
+}
+.cond-grp-4 {
+  box-shadow: inset 3px 0 0 var(--grp-4);
+}
+.cond-grp-5 {
+  box-shadow: inset 3px 0 0 var(--grp-5);
 }
 
 .score-badge {
@@ -1344,7 +1451,8 @@ footer {
 }
 
 body {
-  font-family: 'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', 'PMingLiU', serif;
+  font-family:
+    'Noto Serif TC', 'Songti TC', 'Source Han Serif TC', 'PMingLiU', serif;
 }
 
 /* 宣紙紋理 */
@@ -1469,7 +1577,11 @@ h1 {
 
 /* 摘要首牌鎏朱 */
 .summary > span:first-child {
-  background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 72%, #000));
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 72%, #000)
+  );
   border: 0;
   box-shadow: var(--shadow-soft);
 }
