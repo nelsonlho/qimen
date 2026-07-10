@@ -14,6 +14,7 @@ import {
   computeChart,
   seasonStrength,
   searchGe,
+  xunShouYi,
 } from './core';
 import type {
   AvoidOptions,
@@ -71,7 +72,7 @@ const YONG_OPTIONS: { group: string; items: [string, string][] }[] = [
 ];
 
 function decodeYong(v: string, year: number): YongShen {
-  if (v === '命') return { kind: '命', stem: yearStem(year) };
+  if (v === '命') return mingRef(year);
   if (v === '三吉門') return { kind: '三吉門' };
   const [kind, rest] = v.split(':') as [string, string];
   if (kind === '天') return { kind: '天盤干', stem: rest };
@@ -82,9 +83,14 @@ function decodeYong(v: string, year: number): YongShen {
 
 /** 干指涉編碼('柱:day' 或 '命')→ StemRef */
 function decodeStemRef(target: string, year: number): StemRef {
-  return target === '命'
-    ? { kind: '命', stem: yearStem(year) }
-    : { kind: '柱', pillar: target.split(':')[1] as PillarKey };
+  return target === '命' ? mingRef(year) : { kind: '柱', pillar: target.split(':')[1] as PillarKey };
+}
+
+/** 生年 → 年命干指涉;年干甲者依年柱干支定所遁儀(甲不上盤) */
+function mingRef(year: number): { kind: '命'; stem: string; dun?: string } {
+  const stem = yearStem(year);
+  if (stem !== '甲') return { kind: '命', stem };
+  return { kind: '命', stem, dun: xunShouYi((((year - 4) % 60) + 60) % 60) };
 }
 
 const SI_JI: Stage[] = ['長生', '冠帶', '臨官', '帝旺'];

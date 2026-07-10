@@ -17,6 +17,7 @@ import {
   type Element,
 } from './wuxing'
 import { type Stage } from './changsheng'
+import { pillarStem } from './ganzhi'
 import type { Chart, DateParts, QimenOptions } from './types'
 
 export interface GeCatalogEntry {
@@ -92,6 +93,7 @@ export interface WangCond {
 /**
  * 用神:門/星/神,天盤干/地盤干,盤之四柱干,或用家年命干。
  * 五行之判不涉盤位;同宮之判各依其位:地盤干取地盤所在,門星神取所在宮,餘取天盤所在。
+ * 遁甲:甲不上盤——柱干甲者依本柱定所遁儀(盤時決之);年命甲者以 dun 攜所遁儀。
  */
 export type YongShen =
   | { kind: '門' | '星' | '神'; name: string }
@@ -99,15 +101,15 @@ export type YongShen =
   /** @deprecated 舊制,同「天盤干」 */
   | { kind: '干'; stem: string }
   | { kind: '柱'; pillar: PillarKey }
-  | { kind: '命'; stem: string }
+  | { kind: '命'; stem: string; dun?: string }
   /** 三吉門:開/休/生門,其一即可 */
   | { kind: '三吉門' }
 
 /** 三吉門 */
 export const SAN_JI_MEN = ['開門', '休門', '生門']
 
-/** 干之指涉:盤之四柱干,或用家年命干 */
-export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string }
+/** 干之指涉:盤之四柱干,或用家年命干(甲者 dun 攜所遁儀) */
+export type StemRef = { kind: '柱'; pillar: PillarKey } | { kind: '命'; stem: string; dun?: string }
 
 /** @deprecated 舊名,同 StemRef */
 export type ShengTarget = StemRef
@@ -207,7 +209,7 @@ export function yongLabel(y: YongShen): string {
     case '地盤干':
       return `地盤${y.stem}`
     case '命':
-      return `年命${y.stem}`
+      return y.dun ? `年命${y.stem}(遁${y.dun})` : `年命${y.stem}`
     case '柱':
       return PILLAR_LABEL[y.pillar]
     case '三吉門':
@@ -215,8 +217,9 @@ export function yongLabel(y: YongShen): string {
   }
 }
 
+/** 干指涉之盤上用干:柱干甲者取本柱所遁儀,年命甲者取 dun */
 function resolveStem(r: StemRef, chart: Chart): string {
-  return r.kind === '柱' ? chart.pillars[r.pillar][0] : r.stem
+  return r.kind === '柱' ? pillarStem(chart.pillars[r.pillar]) : (r.dun ?? r.stem)
 }
 
 /** 用神落宮(門/星/神所在;地盤干取地盤所在;餘干取天盤所在,或有二宮) */
@@ -238,11 +241,13 @@ function yongPalaces(y: YongShen, chart: Chart): number[] {
         break
       case '干':
       case '天盤干':
-      case '命':
         if (info.skyStems.includes(y.stem)) out.push(info.palace)
         break
+      case '命':
+        if (info.skyStems.includes(y.dun ?? y.stem)) out.push(info.palace)
+        break
       case '柱':
-        if (info.skyStems.includes(chart.pillars[y.pillar][0])) out.push(info.palace)
+        if (info.skyStems.includes(pillarStem(chart.pillars[y.pillar]))) out.push(info.palace)
         break
       case '三吉門':
         if (info.door && SAN_JI_MEN.includes(info.door)) out.push(info.palace)
@@ -402,7 +407,9 @@ function evalChangSheng(c: ChangShengCond, chart: Chart, ana: ChartAnalysis): Se
     const b = st.perBranch.find((x) => c.stages.includes(x.stage))
     if (!b) continue
     const name = chart.palaces[pa.palace - 1].name
-    const base = c.stem.kind === '柱' ? `${PILLAR_LABEL[c.stem.pillar]}${stem}` : `年命${stem}`
+    const raw = c.stem.kind === '柱' ? chart.pillars[c.stem.pillar][0] : c.stem.stem
+    const disp = raw === '甲' ? `甲(遁${stem})` : stem
+    const base = c.stem.kind === '柱' ? `${PILLAR_LABEL[c.stem.pillar]}${disp}` : `年命${disp}`
     return { kind: '用', label: `${base}${b.stage}`, palace: pa.palace, palaceName: name }
   }
   return null

@@ -42,6 +42,14 @@ export function xunShouYi(gzIndex: number): string {
   return XUN_YI[xunStart(gzIndex) / 10]
 }
 
+/**
+ * 柱之用干(遁甲):甲不上盤,柱首字甲者取本旬所遁六儀
+ * (甲子戊 甲戌己 甲申庚 甲午辛 甲辰壬 甲寅癸);餘取本干。
+ */
+export function pillarStem(gz: string): string {
+  return gz[0] === '甲' ? xunShouYi(ganzhiIndex(gz)) : gz[0]
+}
+
 /** 旬空二支 */
 export function kongWang(gzIndex: number): [string, string] {
   const k = xunStart(gzIndex) / 10 // 0..5

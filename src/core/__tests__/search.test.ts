@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { GE_CATALOG, INTENT_PRESETS, searchGe } from '../search'
 import { analyzeChart } from '../analysis'
+import { pillarStem } from '../ganzhi'
 import { computeChart } from '../pan'
 import { BRANCH_ELEMENT, PALACE_ELEMENT, ke, seasonStrength, sheng } from '../wuxing'
 import type { Stage } from '../changsheng'
@@ -190,10 +191,10 @@ describe('擇時反查', () => {
       START,
       endAfter(days),
     )
-    // 手掃:開門所在宮五行 生 日干天盤所在宮五行
+    // 手掃:開門所在宮五行 生 日干天盤所在宮五行(甲遁六儀)
     const expected = new Set<string>()
     for (const { parts, chart } of eachJu(days)) {
-      if (palRel(chart, { door: '開門' }, { sky: chart.pillars.day[0] }, '生')) {
+      if (palRel(chart, { door: '開門' }, { sky: pillarStem(chart.pillars.day) }, '生')) {
         expected.add(`${parts.day}|${chart.pillars.hour}`)
       }
     }
@@ -233,8 +234,10 @@ describe('擇時反查', () => {
     const revExp = new Set<string>()
     for (const { parts, chart } of eachJu(days)) {
       const k = `${parts.day}|${chart.pillars.hour}`
-      if (palRel(chart, { sky: chart.pillars.hour[0] }, { sky: chart.pillars.day[0] }, '剋')) expected.add(k)
-      if (palRel(chart, { sky: chart.pillars.day[0] }, { sky: chart.pillars.hour[0] }, '剋')) revExp.add(k)
+      const dayS = pillarStem(chart.pillars.day)
+      const hourS = pillarStem(chart.pillars.hour)
+      if (palRel(chart, { sky: hourS }, { sky: dayS }, '剋')) expected.add(k)
+      if (palRel(chart, { sky: dayS }, { sky: hourS }, '剋')) revExp.add(k)
     }
     expect(new Set(fwd.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
     // 倒向:日干宮剋時干宮,自成一集(分向)
@@ -252,7 +255,7 @@ describe('擇時反查', () => {
     for (const parts of scanHours(days)) {
       const chart = computeChart(parts)
       const doorPalace = chart.palaces.find((p) => p.door === '開門')
-      if (doorPalace?.skyStems.includes(chart.pillars.day[0])) {
+      if (doorPalace?.skyStems.includes(pillarStem(chart.pillars.day))) {
         expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
       }
     }
@@ -276,7 +279,7 @@ describe('擇時反查', () => {
       const chart = computeChart(parts)
       if (
         chart.palaces.some(
-          (p) => p.earthStems.includes('乙') && p.skyStems.includes(chart.pillars.day[0]),
+          (p) => p.earthStems.includes('乙') && p.skyStems.includes(pillarStem(chart.pillars.day)),
         )
       ) {
         expected.add(`${chart.pillars.day}|${chart.pillars.hour}`)
@@ -505,8 +508,8 @@ describe('擇時反查', () => {
     )
     const expected = new Set<string>()
     for (const { parts, chart } of eachJu(days)) {
-      // 三吉門任一與日干天盤同宮
-      const dayP = new Set(palOf(chart, { sky: chart.pillars.day[0] }))
+      // 三吉門任一與日干天盤同宮(甲遁六儀)
+      const dayP = new Set(palOf(chart, { sky: pillarStem(chart.pillars.day) }))
       const hit = chart.palaces.some(
         (p) => p.door && ['開門', '休門', '生門'].includes(p.door) && dayP.has(p.palace),
       )
@@ -550,6 +553,83 @@ describe('擇時反查', () => {
       }
     }
     expect(new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))).toEqual(expected)
+  })
+
+  it('遁甲:甲不上盤,柱干甲者以本旬所遁儀論(甲子戊…甲寅癸)', () => {
+    expect(['甲子', '甲戌', '甲申', '甲午', '甲辰', '甲寅'].map((gz) => pillarStem(gz))).toEqual([
+      '戊', '己', '庚', '辛', '壬', '癸',
+    ])
+    expect(pillarStem('庚午')).toBe('庚')
+
+    // 時柱甲X:生門生時干 ⇔ 生門宮生所遁儀宮;且窗內必有甲時命中樣本(覆蓋非空)
+    const days = 10
+    const hits = searchGe(
+      { yong: [{ yong: { kind: '門', name: '生門' }, target: { kind: '柱', pillar: 'hour' } }] },
+      START,
+      endAfter(days),
+    )
+    const hitKeys = new Set(hits.map((h) => `${h.date.day}|${h.hourGZ}`))
+    let jiaHit = 0
+    for (const { parts, chart } of eachJu(days)) {
+      if (chart.pillars.hour[0] !== '甲') continue
+      const dun = pillarStem(chart.pillars.hour)
+      const want = palRel(chart, { door: '生門' }, { sky: dun }, '生')
+      expect(hitKeys.has(`${parts.day}|${chart.pillars.hour}`)).toBe(want)
+      if (want) jiaHit++
+    }
+    expect(jiaHit).toBeGreaterThan(0)
+  })
+
+  it('遁甲:年命甲攜dun,落宮依遁儀,label示(遁X);無dun則盤無甲永不中', () => {
+    const days = 2
+    // 年命甲(遁戊)與天盤戊恆同宮 → 每局皆中
+    const hits = searchGe(
+      {
+        yong: [
+          { yong: { kind: '命', stem: '甲', dun: '戊' }, relation: '同宮', target: { kind: '天盤干', stem: '戊' } },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(hits.length).toBe([...eachJu(days)].length)
+    expect(hits[0].matches.some((m) => m.label === '年命甲(遁戊)與天盤戊同宮')).toBe(true)
+    const none = searchGe(
+      {
+        yong: [
+          { yong: { kind: '命', stem: '甲' }, relation: '同宮', target: { kind: '天盤干', stem: '戊' } },
+        ],
+      },
+      START,
+      endAfter(days),
+    )
+    expect(none).toEqual([])
+  })
+
+  it('遁甲:十二長生依遁干論,label示甲(遁X)', () => {
+    // 尋首個甲時,以其遁儀之天盤落宮階段反查,必中且label明遁
+    for (let h = 1; h < 24; h += 2) {
+      const parts = { ...START, hour: h }
+      const chart = computeChart(parts)
+      if (chart.pillars.hour[0] !== '甲') continue
+      const dun = pillarStem(chart.pillars.hour)
+      const ana = analyzeChart(chart)
+      const stages = new Set<Stage>()
+      for (const pa of ana.palaces) {
+        const st = pa.skyStages.find((s) => s.stem === dun)
+        if (st) for (const b of st.perBranch) stages.add(b.stage)
+      }
+      expect(stages.size).toBeGreaterThan(0)
+      const hits = searchGe(
+        { changsheng: [{ stem: { kind: '柱', pillar: 'hour' }, stages: [...stages], required: true }] },
+        parts,
+        { ...START, hour: h + 1 },
+      )
+      expect(hits.length).toBe(1)
+      expect(hits[0].matches[0].label).toContain(`時干甲(遁${dun})`)
+      return
+    }
+    throw new Error('窗內無甲時,測試無效')
   })
 
   it('八刻法逐刻掃描,ke 有值', () => {
