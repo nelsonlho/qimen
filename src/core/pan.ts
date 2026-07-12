@@ -249,8 +249,8 @@ export function computeChart(input: DateParts, options: QimenOptions = {}): Char
     yinGan[p] = EARTH_SEQ[(yinSeqStart + i) % 9]
   }
 
-  // --- 空亡、馬星 ---
-  const kw = kongWang(hourGz)
+  // --- 空亡(以日柱之旬)、馬星(時支三合) ---
+  const kw = kongWang(dayGz)
   const horse = horseBranch(hourGz % 12)
 
   const palaces: PalaceInfo[] = []

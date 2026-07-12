@@ -323,8 +323,11 @@ function PalaceCell({
         <span className="star">
           {info.stars.map((s) => s.slice(1)).join('')}
           {ana.starStrength && (
-            <i className={`str str-${ana.starStrength.strength}`}>
-              {ana.starStrength.strength}
+            <i
+              className={`str str-${ana.starStrength.palaceStrength}`}
+              title="落宮旺衰"
+            >
+              {ana.starStrength.palaceStrength}
             </i>
           )}
           {info.isZhiFu && <span className="tag tag-fu">符</span>}
@@ -363,11 +366,13 @@ function DetailPanel({
   ana,
   palace,
   jiangMap,
+  showDaiGan,
 }: {
   chart: Chart;
   ana: ChartAnalysis;
   palace: number;
   jiangMap: Record<string, TianJiang> | null;
+  showDaiGan: boolean;
 }) {
   const info = chart.palaces[palace - 1];
   const pa = ana.palaces[palace - 1];
@@ -458,7 +463,12 @@ function DetailPanel({
           <dt>九星</dt>
           <dd>
             {info.stars.join('、')}
-            {pa.starStrength && <>(月令{pa.starStrength.strength})</>}
+            {pa.starStrength && (
+              <>
+                (落宮{pa.starStrength.palaceStrength}・月令
+                {pa.starStrength.strength})
+              </>
+            )}
           </dd>
         </div>
         <div>
@@ -546,6 +556,23 @@ function DetailPanel({
           </div>
         ))}
       </div>
+      {showDaiGan && pa.daiGanGe.length > 0 && (
+        <div className="geju-list">
+          <div className="note">帶干之格(天盤干+門帶干):</div>
+          {pa.daiGanGe.map((g, i) => (
+            <div className="geju" key={i}>
+              <strong>{g.name}</strong>
+              {g.aliases && g.aliases.length > 0 && (
+                <span className="aliases">又名{g.aliases.join('、')}</span>
+              )}
+              <LuckChip luck={g.luck} />
+              <span className="note">
+                {g.note}({g.source})
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -655,7 +682,7 @@ export default function App() {
 
   // 分享連結:起局與圖層諸項盡入參數,開之即同盤
   const [copied, setCopied] = useState(false);
-  const shareUrl = () => {
+  const shareQuery = useMemo(() => {
     const p = new URLSearchParams({
       t: value,
       zi: ziShiMode,
@@ -670,10 +697,27 @@ export default function App() {
     });
     if (plate === '鳴法') p.set('feizhi', showFeiZhi ? '1' : '0');
     if (selected) p.set('gong', String(selected));
-    return `${location.origin}${location.pathname}?${p.toString()}`;
-  };
+    return p.toString();
+  }, [
+    value,
+    ziShiMode,
+    method,
+    plate,
+    showAnGan,
+    showYinGan,
+    showDaiGan,
+    showChuanRen,
+    showFeiZhi,
+    showNeiWai,
+    showMenGan,
+    selected,
+  ]);
+  // 選擇有變,址隨之變(replaceState 不積歷史)
+  useEffect(() => {
+    history.replaceState(null, '', `${location.pathname}?${shareQuery}`);
+  }, [shareQuery]);
   const onShare = async () => {
-    const url = shareUrl();
+    const url = `${location.origin}${location.pathname}?${shareQuery}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
@@ -1015,6 +1059,7 @@ export default function App() {
               ana={anaView}
               palace={selected}
               jiangMap={jiangMap}
+              showDaiGan={showDaiGan}
             />
           ) : (
             <div className="hint">

@@ -35,10 +35,13 @@ export interface GeJu {
 export interface PalaceAnalysis {
   palace: number
   doorRelation: DoorRelation | null
-  starStrength: { star: string; strength: string } | null
+  /** strength=月令論(釣叟歌);palaceStrength=落宮論(同訣,以宮代月令) */
+  starStrength: { star: string; strength: string; palaceStrength: string } | null
   skyStages: StemStages[]
   earthStages: StemStages[]
   geju: GeJu[]
+  /** 帶干之格:天盤干+門帶干(門本宮地盤干),另列不入 geju */
+  daiGanGe: GeJu[]
 }
 
 export interface ChartAnalysis {
@@ -178,15 +181,29 @@ export function analyzeChart(chart: Chart): ChartAnalysis {
       geju.push(...matchZeGe(p))
     }
 
+    // 帶干之格:天盤干+門帶干,按十干剋應;帶干即地盤干者已在正格,不復列
+    const daiGanGe: GeJu[] = []
+    if (p.palace !== 5 && p.doorDaiGan && !p.earthStems.includes(p.doorDaiGan)) {
+      for (const s of p.skyStems) {
+        const hit = KE_YING[`${s}+${p.doorDaiGan}`]
+        if (hit) daiGanGe.push({ ...hit, source: `天盤${s}+帶干${p.doorDaiGan}` })
+      }
+    }
+
     return {
       palace: p.palace,
       doorRelation: p.door ? doorPalaceRelation(p.door, p.palace) : null,
       starStrength: p.stars.length
-        ? { star: p.stars[0], strength: starWangShuai(STAR_ELEMENT[p.stars[0]], seasonElem) }
+        ? {
+            star: p.stars[0],
+            strength: starWangShuai(STAR_ELEMENT[p.stars[0]], seasonElem),
+            palaceStrength: starWangShuai(STAR_ELEMENT[p.stars[0]], PALACE_ELEMENT[p.palace]),
+          }
         : null,
       skyStages: p.skyStems.map((s) => stagesInPalace(s, branches)).filter((x): x is StemStages => !!x),
       earthStages: p.earthStems.map((s) => stagesInPalace(s, branches)).filter((x): x is StemStages => !!x),
       geju,
+      daiGanGe,
     }
   })
 

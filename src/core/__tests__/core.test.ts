@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BRANCHES,
   ganzhiIndex,
   ganzhiName,
   hourGanzhiIndex,
@@ -289,10 +288,41 @@ describe('排盤', () => {
     expect(new Set(sky).size).toBe(9)
   })
 
-  it('空亡馬星按時支', () => {
+  it('帶干之格:天盤干+門帶干,另列於 daiGanGe', () => {
+    // 置閏陰遁八局:坤二開門帶庚(乾六地盤),天盤己:己+庚刑格返名
+    const chart = computeChart({ year: 2026, month: 7, day: 5, hour: 10, minute: 30 })
+    expect(chart.palaces[1].doorDaiGan).toBe('庚')
+    const ana = analyzeChart(chart)
+    expect(ana.palaces[1].daiGanGe.map((g) => g.name)).toContain('刑格返名')
+    // 帶干即本宮地盤干者不復列
+    for (const p of chart.palaces) {
+      if (p.doorDaiGan && p.earthStems.includes(p.doorDaiGan)) {
+        expect(ana.palaces[p.palace - 1].daiGanGe).toEqual([])
+      }
+    }
+  })
+
+  it('九星旺衰並列:月令(釣叟歌)與落宮(同訣,宮代月令)', () => {
+    // 2026-07-05 10:30 拆補陰遁9局:值符天任(土)落乾六(金)
+    // 月令甲午火:火生土,廢於父母;落宮:土生金,我生為旺
+    const chart = computeChart(
+      { year: 2026, month: 7, day: 5, hour: 10, minute: 30 },
+      { method: '拆補' },
+    )
+    const renPalace = chart.palaces.find((p) => p.stars.includes('天任'))!
+    expect(renPalace.palace).toBe(6)
+    const ana = analyzeChart(chart)
+    const ss = ana.palaces[5].starStrength!
+    expect(ss.strength).toBe('廢')
+    expect(ss.palaceStrength).toBe('旺')
+  })
+
+  it('空亡以日柱之旬,馬星按時支', () => {
+    // 2026-07-05 巳時:庚辰日(甲戌旬,空申酉);辛巳時(巳酉丑馬在亥)
     const chart = computeChart({ year: 2026, month: 7, day: 5, hour: 10, minute: 0 })
-    expect(BRANCHES).toContain(chart.horseBranch)
-    expect(chart.kongWang).toHaveLength(2)
+    expect(chart.pillars.day).toBe('庚辰')
+    expect(chart.kongWang).toEqual(['申', '酉'])
+    expect(chart.horseBranch).toBe('亥')
   })
 })
 
