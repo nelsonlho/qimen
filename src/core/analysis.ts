@@ -2,17 +2,19 @@
 
 import { stagesInPalace, type StemStages } from './changsheng'
 import { KE_YING, type KeYing, type Luck } from './keying'
+import { MEN_MEN, MEN_YING, PALACE_BASE_DOOR } from './menying'
 import {
   BRANCH_ELEMENT,
   DOOR_ELEMENT,
   PALACE_ELEMENT,
   STAR_ELEMENT,
+  STEM_ELEMENT,
   ke,
   sheng,
   starWangShuai,
 } from './wuxing'
 import { matchZeGe } from './zege'
-import { STEMS } from './ganzhi'
+import { STEMS, pillarStem } from './ganzhi'
 import type { Chart, PalaceInfo } from './types'
 
 export interface DoorRelation {
@@ -78,6 +80,14 @@ export function doorPalaceRelation(door: string, palace: number): DoorRelation {
 export function analyzeChart(chart: Chart): ChartAnalysis {
   const monthBranch = chart.pillars.month[1]
   const seasonElem = BRANCH_ELEMENT[monthBranch]
+  // 四柱用干(甲遁六儀)與值符儀,庚格丙悖諸動格所需
+  const pGan = {
+    歲: pillarStem(chart.pillars.year),
+    月: pillarStem(chart.pillars.month),
+    日: pillarStem(chart.pillars.day),
+    時: pillarStem(chart.pillars.hour),
+  }
+  const fuYi = chart.xunYi
 
   const palaces: PalaceAnalysis[] = chart.palaces.map((p: PalaceInfo) => {
     const branches = PALACE_BRANCHES[p.palace]
@@ -109,6 +119,60 @@ export function analyzeChart(chart: Chart): ChartAnalysis {
       // 玉女守門:丁奇臨值使門宮
       if (p.isZhiShi && p.skyStems.includes('丁')) {
         geju.push({ name: '玉女守門', luck: '吉', note: '丁奇臨值使之門,百事可為', source: '天盤丁+值使門' })
+      }
+      // 三奇受制:奇落宮受宮剋(乙落乾兌、丙丁落坎)
+      for (const s of p.skyStems) {
+        if ('乙丙丁'.includes(s) && ke(PALACE_ELEMENT[p.palace], STEM_ELEMENT[s])) {
+          geju.push({ name: '三奇受制', luck: '凶', note: `${s}奇落${p.name}宮受宮剋,奇力受挫`, source: `天盤${s}落${p.name}宮` })
+        }
+      }
+      // 庚格丙悖家族+天網四張:庚丙癸臨四柱干、值符儀,動態成格
+      // (與81格名重者不復列,如旬首遁戊時庚+戊已名太白伏宮)
+      const sky = p.skyStems
+      const earth = p.earthStems
+      const addDyn = (name: string, note: string, source: string) => {
+        if (geju.some((g) => g.name === name || g.aliases?.includes(name))) return
+        geju.push({ name, luck: '凶', note, source })
+      }
+      if (sky.includes('庚')) {
+        if (earth.includes(pGan.日)) addDyn('伏干格', '庚伏日干之上,同人相害,凡事不利', `天盤庚+地盤日干${pGan.日}`)
+        if (earth.includes(pGan.時)) addDyn('伏格', '庚伏時干之上,諸事阻滯,又名時格', `天盤庚+地盤時干${pGan.時}`)
+        if (earth.includes(pGan.歲)) addDyn('歲格', '庚加年干,歲君受制,謀事多阻', `天盤庚+地盤年干${pGan.歲}`)
+        if (earth.includes(pGan.月)) addDyn('月格', '庚加月干,月建受制,事多阻隔', `天盤庚+地盤月干${pGan.月}`)
+        if (earth.includes(fuYi)) addDyn('天乙伏宮', '庚加值符,百事不可謀為', `天盤庚+地盤值符儀${fuYi}`)
+      }
+      if (earth.includes('庚')) {
+        if (sky.includes(pGan.日)) addDyn('飛干格', '日干飛臨庚上,凡事格拒不利', `天盤日干${pGan.日}+地盤庚`)
+        if (sky.includes(pGan.時)) addDyn('飛格', '時干飛臨庚上,所謀被格,難成', `天盤時干${pGan.時}+地盤庚`)
+        if (sky.includes(fuYi)) addDyn('天乙飛宮', '值符加庚,吉事成凶,宜守勿動', `天盤值符儀${fuYi}+地盤庚`)
+      }
+      if (sky.includes('丙')) {
+        if (earth.includes(fuYi)) addDyn('伏悖', '丙加值符,火悖亂真,文書事亂', `天盤丙+地盤值符儀${fuYi}`)
+        if (earth.includes(pGan.歲)) addDyn('歲悖', '丙加年干,悖亂經年,事多乖張', `天盤丙+地盤年干${pGan.歲}`)
+        if (earth.includes(pGan.月)) addDyn('月悖', '丙加月干,月內悖亂,事不順遂', `天盤丙+地盤月干${pGan.月}`)
+        if (earth.includes(pGan.日)) addDyn('日悖', '丙加日干,當日悖亂,防文書差錯', `天盤丙+地盤日干${pGan.日}`)
+        if (earth.includes(pGan.時)) addDyn('時悖', '丙加時干,臨事悖亂,舉動乖違', `天盤丙+地盤時干${pGan.時}`)
+      }
+      if (earth.includes('丙') && sky.includes(fuYi)) {
+        addDyn('飛悖', '值符加丙,悖亂飛揚,諸事反覆', `天盤值符儀${fuYi}+地盤丙`)
+      }
+      if (sky.includes('癸') && earth.includes(pGan.時)) {
+        addDyn('天網四張', '癸加時干,天網張時,舉動不便,宜守', `天盤癸+地盤時干${pGan.時}`)
+      }
+      // 八門加臨十干剋應(門加本宮天盤干)
+      if (p.door) {
+        for (const s of p.skyStems) {
+          const my = MEN_YING[`${p.door[0]}+${s}`]
+          if (my) {
+            geju.push({ name: `${p.door[0]}門加${s}`, luck: my.luck, note: my.note, source: `${p.door}加天盤${s}` })
+          }
+        }
+        // 門加門(門加本宮八卦本位之門;門臨本位如休加休,亦在表中)
+        const base = PALACE_BASE_DOOR[p.palace]
+        const mm = base && MEN_MEN[`${p.door[0]}+${base[0]}`]
+        if (mm) {
+          geju.push({ name: `${p.door[0]}門加${base[0]}門`, luck: mm.luck, note: mm.note, source: `${p.door}加本位${base}` })
+        }
       }
       // 擇日格:九遁、三詐五假、升殿、得使
       geju.push(...matchZeGe(p))

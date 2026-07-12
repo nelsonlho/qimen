@@ -16,6 +16,8 @@
   --gold: #8f6f2a; /* 泥金 */
   --good: #3e7d4a;
   --muted: #8d8171;
+  --nei-tint: rgba(163, 58, 36, 0.13); /* 內盤暖朱 */
+  --wai-tint: rgba(47, 95, 140, 0.13); /* 外盤寒黛 */
   --shadow:
     0 10px 34px rgba(60, 45, 20, 0.14), 0 2px 8px rgba(60, 45, 20, 0.08);
   --shadow-soft: 0 4px 16px rgba(60, 45, 20, 0.08);
@@ -39,6 +41,8 @@
     --gold: #d4ad58;
     --good: #6fae7a;
     --muted: #968d78;
+    --nei-tint: rgba(224, 122, 90, 0.16);
+    --wai-tint: rgba(134, 179, 222, 0.16);
     --shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
     --shadow-soft: 0 4px 18px rgba(0, 0, 0, 0.4);
     color-scheme: dark;
@@ -61,6 +65,8 @@
   --gold: #d4ad58;
   --good: #6fae7a;
   --muted: #968d78;
+  --nei-tint: rgba(224, 122, 90, 0.16);
+  --wai-tint: rgba(134, 179, 222, 0.16);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.4);
   --shadow-soft: 0 4px 18px rgba(0, 0, 0, 0.4);
   color-scheme: dark;
@@ -248,6 +254,22 @@ h1 {
   text-indent: 0.2em;
 }
 
+/* 分享連結/存圖:淡鈕,不奪目 */
+.controls button.tool-btn {
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  background: var(--cell);
+  color: var(--ink);
+  border-color: var(--line);
+  letter-spacing: 0.08em;
+  text-indent: 0;
+}
+
+.controls button.tool-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .controls button:hover {
   opacity: 0.88;
 }
@@ -386,6 +408,37 @@ h1 {
   .palace:hover {
     background: var(--cell-raised);
   }
+}
+
+/* 內外盤:宮底分明,內暖外寒;置於 selected 之前,選中仍勝
+   rgba 疊於宮底,不用 color-mix,舊瀏覽器亦行 */
+.palace.nei-pan {
+  background: linear-gradient(var(--nei-tint), var(--nei-tint)), var(--cell);
+}
+
+.palace.wai-pan {
+  background: linear-gradient(var(--wai-tint), var(--wai-tint)), var(--cell);
+}
+
+/* 內外小籤,綴於宮名之前 */
+.nw-tag {
+  font-style: normal;
+  font-size: 0.9em;
+  padding: 0 4px;
+  margin-right: 5px;
+  border-radius: 4px;
+  border: 1px solid;
+  letter-spacing: 0;
+}
+
+.nw-tag.nei {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.nw-tag.wai {
+  color: var(--accent2);
+  border-color: color-mix(in srgb, var(--accent2) 45%, transparent);
 }
 
 .palace.selected {

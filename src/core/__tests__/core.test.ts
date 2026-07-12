@@ -12,6 +12,7 @@ import { stageOf, stagesInPalace } from '../changsheng'
 import { analyzeChart, doorPalaceRelation } from '../analysis'
 import { starWangShuai } from '../wuxing'
 import { KE_YING } from '../keying'
+import { MEN_MEN, MEN_YING } from '../menying'
 import { PALACE_NUMBERS } from '../numbers'
 import { matchZeGe } from '../zege'
 import { dayNumber, getTerms } from '../solarTerms'
@@ -575,5 +576,45 @@ describe('鳴法', () => {
       computeChart({ year: 2026, month: 7, day: 6, hour: 12, minute: 0 }, { plate: '飛盤' })
         .palaces.every((p) => p.earthGod == null),
     ).toBe(true)
+  })
+})
+
+describe('八門加臨與庚格丙悖諸動格', () => {
+  it('門加干表:八門×九干七十一條,生+壬通行本缺', () => {
+    expect(Object.keys(MEN_YING).length).toBe(71)
+    for (const k of Object.keys(MEN_YING)) {
+      const [d, s] = k.split('+')
+      expect('開休生傷杜景死驚').toContain(d)
+      expect('乙丙丁戊己庚辛壬癸').toContain(s)
+    }
+    expect(MEN_YING['生+壬']).toBeUndefined()
+  })
+
+  it('門加門表:八八六十四條俱全', () => {
+    expect(Object.keys(MEN_MEN).length).toBe(64)
+    for (const d of '開休生傷杜景死驚') {
+      for (const e of '開休生傷杜景死驚') {
+        expect(MEN_MEN[`${d}+${e}`]).toBeDefined()
+      }
+    }
+  })
+
+  it('動格刊例:2026-07-05 10:30 庚辰日辛巳時,值符儀己', () => {
+    // 陰遁八局:兌七天盤庚加地盤己→天乙伏宮;乾六天盤丙加地盤庚(日干)→日悖
+    const chart = computeChart({ year: 2026, month: 7, day: 5, hour: 10, minute: 30 })
+    expect(chart.xunYi).toBe('己')
+    const ana = analyzeChart(chart)
+    const names = (p: number) => ana.palaces[p - 1].geju.map((g) => g.name)
+    expect(names(7)).toContain('天乙伏宮')
+    expect(names(6)).toContain('日悖')
+    // 門加干:傷門落坎加天盤戊、開門落坤加天盤己、驚門落離加天盤丁辛(二干皆論)
+    expect(names(1)).toContain('傷門加戊')
+    expect(names(2)).toContain('開門加己')
+    expect(names(9)).toEqual(expect.arrayContaining(['驚門加丁', '驚門加辛']))
+    // 門加門:傷門落坎加本位休門、休門落兌加本位驚門
+    expect(names(1)).toContain('傷門加休門')
+    expect(names(7)).toContain('休門加驚門')
+    // 中五不論
+    expect(names(5)).toEqual([])
   })
 })

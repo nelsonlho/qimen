@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   BRANCHES,
@@ -31,6 +31,13 @@ import './App.css';
 // 洛書九宮版位:上南下北
 const GRID: number[] = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
+// 內外盤:陽遁坎艮震巽為內、離坤兌乾為外;陰遁反之;中五不屬
+const NEI_YANG = new Set([1, 8, 3, 4]);
+function neiWai(palace: number, dun: '陽' | '陰'): '內' | '外' | null {
+  if (palace === 5) return null;
+  return NEI_YANG.has(palace) === (dun === '陽') ? '內' : '外';
+}
+
 // 穿壬外環:十二支繞盤方位(上南下北左東右西),[支, 列, 行]
 const RING: [string, number, number][] = [
   ['巳', 1, 2],
@@ -59,6 +66,9 @@ const TRIGRAM: Record<number, string> = {
   8: '☶',
   9: '☲',
 };
+
+// 門加剋應之格名,如「開門加乙」「開門加休門」——可隱以清盤面
+const MEN_GAN_RE = /^[開休生傷杜景死驚]門加./;
 
 const STAGE_SHORT: Record<string, string> = {
   長生: '生',
@@ -165,6 +175,7 @@ function PalaceCell({
   showYinGan,
   showDaiGan,
   showFeiZhi,
+  showNeiWai,
   order,
   globalGe,
   jiangMap,
@@ -179,12 +190,15 @@ function PalaceCell({
   showYinGan: boolean;
   showDaiGan: boolean;
   showFeiZhi: boolean;
+  showNeiWai: boolean;
   order: number;
   globalGe: GeJu[];
   jiangMap: Record<string, TianJiang> | null;
   marks: Record<string, StemMark[]>;
 }) {
   const cellStyle = { '--i': order } as CSSProperties;
+  const nw = showNeiWai ? neiWai(info.palace, chart.ju.dun) : null;
+  const nwClass = nw === '內' ? ' nei-pan' : nw === '外' ? ' wai-pan' : '';
   // 格底一行:左為暗干隱干,右為宮名——入流佈局,不壓正文
   // 天將:寬屏由外環顯,窄屏環無所容,以此行內備(CSS media 擇一)
   const cellFoot = (
@@ -203,7 +217,17 @@ function PalaceCell({
           ))}
         </span>
       )}
-      <span className="palace-name">{info.name}</span>
+      <span className="palace-name">
+        {nw && (
+          <i
+            className={`nw-tag ${nw === '內' ? 'nei' : 'wai'}`}
+            title={`${chart.ju.dun}遁${nw}盤`}
+          >
+            {nw}
+          </i>
+        )}
+        {info.name}
+      </span>
     </div>
   );
   const watermark = <span className="trigram">{TRIGRAM[info.palace]}</span>;
@@ -212,7 +236,7 @@ function PalaceCell({
     const isFly = chart.plateStyle !== '轉盤';
     return (
       <div
-        className={`palace center${selected ? ' selected' : ''}${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}`}
+        className={`palace center${nwClass}${selected ? ' selected' : ''}${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}`}
         style={cellStyle}
         onClick={onSelect}
         role="button"
@@ -272,7 +296,7 @@ function PalaceCell({
   const jiXing = ana.geju.some((g) => g.name === '六儀擊刑');
   return (
     <div
-      className={`palace${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}${selected ? ' selected' : ''}`}
+      className={`palace${nwClass}${info.isZhiFu ? ' zhifu' : ''}${info.isZhiShi ? ' zhishi' : ''}${selected ? ' selected' : ''}`}
       style={cellStyle}
       onClick={onSelect}
       role="button"
@@ -529,14 +553,31 @@ function DetailPanel({
 type Theme = 'auto' | 'light' | 'dark';
 
 export default function App() {
-  const [value, setValue] = useState(() => toInputValue(new Date()));
-  const [ziShiMode, setZiShiMode] = useState<'23' | '0'>('23');
-  const [method, setMethod] = useState<JuMethod>('置閏');
+  // 起局諸項皆可自分享連結之參數還原
+  const [value, setValue] = useState(() => {
+    const q = new URLSearchParams(location.search).get('t');
+    return q && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(q)
+      ? q
+      : toInputValue(new Date());
+  });
+  const [ziShiMode, setZiShiMode] = useState<'23' | '0'>(() => {
+    const q = new URLSearchParams(location.search).get('zi');
+    return q === '0' || q === '23' ? q : '23';
+  });
+  const [method, setMethod] = useState<JuMethod>(() => {
+    const q = new URLSearchParams(location.search).get('fa');
+    return q === '置閏' || q === '拆補' || q === '旬首' || q === '八刻'
+      ? q
+      : '置閏';
+  });
   const [plate, setPlate] = useState<PlateStyle>(() => {
     const q = new URLSearchParams(location.search).get('plate');
     return q === '飛盤' || q === '轉盤' || q === '鳴法' ? q : '轉盤';
   });
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(() => {
+    const q = Number(new URLSearchParams(location.search).get('gong'));
+    return Number.isInteger(q) && q >= 1 && q <= 9 ? q : null;
+  });
   const [theme, setTheme] = useState<Theme>(() => {
     const q = new URLSearchParams(location.search).get('theme');
     if (q === 'light' || q === 'dark' || q === 'auto') return q;
@@ -554,6 +595,13 @@ export default function App() {
   const [showDaiGan, setShowDaiGan] = useState(layerInit('qimen-daigan'));
   const [showChuanRen, setShowChuanRen] = useState(layerInit('qimen-chuanren'));
   const [showFeiZhi, setShowFeiZhi] = useState(layerInit('qimen-feizhi'));
+  const [showNeiWai, setShowNeiWai] = useState(layerInit('qimen-neiwai'));
+  // 門加干缺省開;宮宮有應嫌其擾者可關
+  const [showMenGan, setShowMenGan] = useState(() => {
+    const q = new URLSearchParams(location.search).get('mengan');
+    if (q === '1' || q === '0') return q === '1';
+    return localStorage.getItem('qimen-mengan') !== '0';
+  });
   const [view, setView] = useState<'chart' | 'search'>('chart');
 
   useEffect(() => {
@@ -569,7 +617,9 @@ export default function App() {
     localStorage.setItem('qimen-daigan', showDaiGan ? '1' : '0');
     localStorage.setItem('qimen-chuanren', showChuanRen ? '1' : '0');
     localStorage.setItem('qimen-feizhi', showFeiZhi ? '1' : '0');
-  }, [showAnGan, showYinGan, showDaiGan, showChuanRen, showFeiZhi]);
+    localStorage.setItem('qimen-neiwai', showNeiWai ? '1' : '0');
+    localStorage.setItem('qimen-mengan', showMenGan ? '1' : '0');
+  }, [showAnGan, showYinGan, showDaiGan, showChuanRen, showFeiZhi, showNeiWai, showMenGan]);
 
   const { chart, ana, error } = useMemo(() => {
     const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
@@ -585,11 +635,79 @@ export default function App() {
     }
   }, [value, ziShiMode, method, plate]);
 
+  // 門加干關則濾於顯示層,斷析與反查仍全算
+  const anaView = useMemo(() => {
+    if (!ana || showMenGan) return ana;
+    return {
+      ...ana,
+      palaces: ana.palaces.map((pa) => ({
+        ...pa,
+        geju: pa.geju.filter((g) => !MEN_GAN_RE.test(g.name)),
+      })),
+    };
+  }, [ana, showMenGan]);
+
   // 穿壬:十二天將依日干晝夜貴佈支位
   const jiangMap =
     chart && showChuanRen
       ? chuanRen(chart.pillars.day[0], chart.pillars.hour[1])
       : null;
+
+  // 分享連結:起局與圖層諸項盡入參數,開之即同盤
+  const [copied, setCopied] = useState(false);
+  const shareUrl = () => {
+    const p = new URLSearchParams({
+      t: value,
+      zi: ziShiMode,
+      fa: method,
+      plate,
+      angan: showAnGan ? '1' : '0',
+      yingan: showYinGan ? '1' : '0',
+      daigan: showDaiGan ? '1' : '0',
+      chuanren: showChuanRen ? '1' : '0',
+      neiwai: showNeiWai ? '1' : '0',
+      mengan: showMenGan ? '1' : '0',
+    });
+    if (plate === '鳴法') p.set('feizhi', showFeiZhi ? '1' : '0');
+    if (selected) p.set('gong', String(selected));
+    return `${location.origin}${location.pathname}?${p.toString()}`;
+  };
+  const onShare = async () => {
+    const url = shareUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt('複製此連結', url);
+    }
+  };
+
+  // 存圖:排盤區域(四柱、局訊、九宮)成 PNG
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
+  const onSaveImg = async () => {
+    const node = exportRef.current;
+    if (!node || !chart) return;
+    setSaving(true);
+    try {
+      const { toPng } = await import('html-to-image');
+      const bg =
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--paper')
+          .trim() || '#f3edde';
+      const dataUrl = await toPng(node, {
+        backgroundColor: bg,
+        pixelRatio: 2,
+      });
+      const a = document.createElement('a');
+      a.download = `奇門_${chart.pillars.day}日${chart.pillars.hour}時_${chart.ju.dun}遁${chart.ju.ju}局.png`;
+      a.href = dataUrl;
+      a.click();
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="app">
@@ -720,6 +838,28 @@ export default function App() {
             />
             穿壬
           </label>
+          <label
+            className="opt check"
+            title="陽遁坎艮震巽為內、離坤兌乾為外;陰遁反之;中五不屬"
+          >
+            <input
+              type="checkbox"
+              checked={showNeiWai}
+              onChange={(e) => setShowNeiWai(e.target.checked)}
+            />
+            內外盤
+          </label>
+          <label
+            className="opt check"
+            title="八門加臨剋應(門加干、門加本位門),宮宮有應,嫌其擾可關"
+          >
+            <input
+              type="checkbox"
+              checked={showMenGan}
+              onChange={(e) => setShowMenGan(e.target.checked)}
+            />
+            門加應
+          </label>
           {plate === '鳴法' && (
             <label className="opt check">
               <input
@@ -730,6 +870,21 @@ export default function App() {
               飛支
             </label>
           )}
+          <button
+            className="tool-btn"
+            onClick={onShare}
+            title="複製此盤連結,開之即同盤"
+          >
+            {copied ? '已複製' : '分享連結'}
+          </button>
+          <button
+            className="tool-btn"
+            onClick={onSaveImg}
+            disabled={saving}
+            title="存排盤為 PNG 圖"
+          >
+            {saving ? '存製中…' : '存圖'}
+          </button>
         </div>
       )}
 
@@ -752,8 +907,10 @@ export default function App() {
 
       {view === 'chart' && error && <div className="error">{error}</div>}
 
-      {view === 'chart' && chart && ana && (
+      {view === 'chart' && chart && anaView && (
         <>
+          {/* 存圖之界:四柱、局訊、九宮盡入 */}
+          <div ref={exportRef}>
           {/* 古式直書:年柱居右,自右向左讀 */}
           <div className="pillars">
             {(['hour', 'day', 'month', 'year'] as const).map((k, i) => (
@@ -812,14 +969,15 @@ export default function App() {
                     order={idx}
                     info={chart.palaces[p - 1]}
                     chart={chart}
-                    ana={ana.palaces[p - 1]}
+                    ana={anaView.palaces[p - 1]}
                     selected={selected === p}
                     onSelect={() => setSelected(selected === p ? null : p)}
                     showAnGan={showAnGan}
                     showYinGan={showYinGan}
                     showDaiGan={showDaiGan}
                     showFeiZhi={showFeiZhi}
-                    globalGe={ana.global}
+                    showNeiWai={showNeiWai}
+                    globalGe={anaView.global}
                     jiangMap={jiangMap}
                     marks={marks}
                   />
@@ -849,11 +1007,12 @@ export default function App() {
               </div>
             );
           })()}
+          </div>
 
           {selected ? (
             <DetailPanel
               chart={chart}
-              ana={ana}
+              ana={anaView}
               palace={selected}
               jiangMap={jiangMap}
             />
