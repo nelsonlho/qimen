@@ -730,21 +730,37 @@ export default function App() {
   };
 
   // 存圖:排盤區域(四柱、局訊、九宮)成 PNG
+  // 不內嵌 web 字體(Noto CJK 百餘子集,一嵌數十秒):出圖以本機宋體代,形近而速
   const exportRef = useRef<HTMLDivElement>(null);
+  const h2iRef = useRef<Promise<typeof import('html-to-image')> | null>(null);
+  const loadH2i = () => (h2iRef.current ??= import('html-to-image'));
+  useEffect(() => {
+    const t = setTimeout(() => {
+      loadH2i().catch(() => {
+        h2iRef.current = null; // 預載失敗無妨,存圖時再試
+      });
+    }, 1500);
+    return () => clearTimeout(t);
+  }, []);
   const [saving, setSaving] = useState(false);
   const onSaveImg = async () => {
     const node = exportRef.current;
     if (!node || !chart) return;
     setSaving(true);
     try {
-      const { toPng } = await import('html-to-image');
+      const h2i = await loadH2i();
       const bg =
         getComputedStyle(document.documentElement)
           .getPropertyValue('--paper')
           .trim() || '#f3edde';
-      const dataUrl = await toPng(node, {
+      const dataUrl = await h2i.toPng(node, {
         backgroundColor: bg,
         pixelRatio: 2,
+        skipFonts: true,
+        style: {
+          fontFamily:
+            "'Songti TC', 'Source Han Serif TC', 'PMingLiU', serif",
+        },
       });
       const a = document.createElement('a');
       a.download = `奇門_${chart.pillars.day}日${chart.pillars.hour}時_${chart.ju.dun}遁${chart.ju.ju}局.png`;
