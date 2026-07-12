@@ -12,6 +12,8 @@ import {
   analyzeChart,
   chuanRen,
   computeChart,
+  ganzhiIndex,
+  kongWang,
   pillarStem,
 } from './core';
 import type {
@@ -970,6 +972,14 @@ export default function App() {
                     {chart.pillars[k][1]}
                   </span>
                 </div>
+                {/* 四柱各自之旬空;日旬空乃盤中宮空所本,特著之 */}
+                <div
+                  className={`pillar-kong${k === 'day' ? ' pillar-kong-day' : ''}`}
+                  title={k === 'day' ? '日旬空:盤中宮空以此為準' : '旬空'}
+                >
+                  空{kongWang(ganzhiIndex(chart.pillars[k])).join('')}
+                  {k === 'day' && <i className="kong-pan">盤</i>}
+                </div>
               </div>
             ))}
           </div>
@@ -996,7 +1006,6 @@ export default function App() {
             <span>
               值符{chart.zhiFuStar}・值使{chart.zhiShiDoor}
             </span>
-            <span>空亡 {chart.kongWang.join('')}</span>
             <span>馬星 {chart.horseBranch}</span>
           </div>
 

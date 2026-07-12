@@ -323,6 +323,30 @@ h1 {
   text-indent: 0.2em;
 }
 
+/* 四柱旬空;日旬空乃宮空所本,朱著 */
+.pillar-kong {
+  font-size: 0.95rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-top: 3px;
+  white-space: nowrap;
+}
+
+.pillar-kong-day {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.kong-pan {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 0.9em;
+  margin-left: 3px;
+  padding: 0 3px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 4px;
+}
+
 .pillar-gz {
   font-size: clamp(1.2rem, 4.5vw, 1.5rem);
   writing-mode: vertical-rl;
