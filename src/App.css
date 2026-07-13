@@ -492,6 +492,8 @@ h1 {
 
 .row {
   display: flex;
+  /* 干群過寬(如寄宮二干皆帶柱記)整體落次行並列,勿使框記直疊 */
+  flex-wrap: wrap;
   justify-content: flex-start;
   align-items: baseline;
   font-size: clamp(1.05rem, 4.4vw, 1.45rem);
@@ -642,6 +644,9 @@ h1 {
 
 .marks {
   display: inline-flex;
+  /* 格局點眾(如伏吟值符宮十餘格)許折行,勿擠空馬諸記出界 */
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 2px;
 }
