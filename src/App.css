@@ -727,6 +727,20 @@ h1 {
   white-space: nowrap;
 }
 
+/* 隱干疊於八神之上;字略大於格底舊制,隨 god-row 之度 */
+.god-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.god-stack .yingan {
+  font-size: 0.78em;
+  line-height: 1.15;
+  letter-spacing: 0.05em;
+}
+
 /* 鳴法飛支 */
 .feizhi {
   color: var(--good);

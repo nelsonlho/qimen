@@ -40,9 +40,16 @@ const AVOID_ITEMS: [keyof AvoidOptions, string][] = [
   ['jiXing', '避擊刑'],
   ['menPo', '避門迫'],
   ['wuBuYuShi', '避五不遇時'],
+  ['shiGanRuMu', '避時干入墓'],
 ];
 
-const AVOID_ALL: AvoidOptions = { kong: true, jiXing: true, menPo: true, wuBuYuShi: true };
+const AVOID_ALL: AvoidOptions = {
+  kong: true,
+  jiXing: true,
+  menPo: true,
+  wuBuYuShi: true,
+  shiGanRuMu: true,
+};
 
 /** 條件可用之八宮(中五不論門神,不列) */
 const COND_PALACES: [number, string][] = [

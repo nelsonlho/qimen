@@ -179,6 +179,8 @@ export interface AvoidOptions {
   menPo?: boolean
   /** 全局五不遇時則整個時辰棄 */
   wuBuYuShi?: boolean
+  /** 時干入墓(時干天盤落宮臨墓)則整個時辰棄 */
+  shiGanRuMu?: boolean
 }
 
 export interface SearchMatch {
@@ -442,6 +444,8 @@ interface EvalResult {
 function evalChart(query: SearchQuery, chart: Chart, avoid: AvoidOptions): EvalResult | null {
   const ana = analyzeChart(chart)
   if (avoid.wuBuYuShi && ana.global.some((g) => g.name === '五不遇時')) return null
+  if (avoid.shiGanRuMu && ana.palaces.some((pa) => pa.geju.some((g) => g.name === '時干入墓')))
+    return null
 
   const matches: SearchMatch[] = []
 

@@ -112,11 +112,16 @@ export function analyzeChart(chart: Chart): ChartAnalysis {
           geju.push({ name: '六儀擊刑', luck: '凶', note: `${s}落${p.name}宮,${jx[1]},諸事不利`, source: `天盤${s}` })
         }
       }
-      // 奇儀入墓(以十二長生墓位斷)
+      // 奇儀入墓(以十二長生墓位斷);時干墓者特標「時干入墓」,擇時可避
       for (const s of p.skyStems) {
         const st = stagesInPalace(s, branches)
-        if (st?.perBranch.some((b) => b.stage === '墓')) {
-          geju.push({ name: '入墓', luck: '凶', note: `${s}墓於${st.perBranch.find((b) => b.stage === '墓')!.branch},氣伏不揚`, source: `天盤${s}` })
+        const mb = st?.perBranch.find((b) => b.stage === '墓')
+        if (mb) {
+          if (s === pGan.時) {
+            geju.push({ name: '時干入墓', aliases: ['入墓'], luck: '凶', note: `時干${s}墓於${mb.branch},舉事昏晦不明,宜另擇時`, source: `天盤時干${s}` })
+          } else {
+            geju.push({ name: '入墓', luck: '凶', note: `${s}墓於${mb.branch},氣伏不揚`, source: `天盤${s}` })
+          }
         }
       }
       // 玉女守門:丁奇臨值使門宮

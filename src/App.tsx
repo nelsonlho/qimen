@@ -206,7 +206,10 @@ function PalaceCell({
   const cellFoot = (
     <div className="cell-foot">
       {showAnGan && <span className="angan">暗{info.anGan}</span>}
-      {showYinGan && <span className="yingan">隱{info.yinGan}</span>}
+      {/* 隱干移居八神之上;轉盤中五無神可依,仍留格底 */}
+      {showYinGan && info.palace === 5 && chart.plateStyle === '轉盤' && (
+        <span className="yingan">隱{info.yinGan}</span>
+      )}
       {showFeiZhi && info.anZhi && (
         <span className="feizhi">支{info.anZhi}</span>
       )}
@@ -256,11 +259,14 @@ function PalaceCell({
         </div>
         {isFly && (
           <div className="center-fly">
-            <span className="god">
-              {info.god?.slice(1)}
-              {info.earthGod && (
-                <i className="egod">{info.earthGod.slice(1)}</i>
-              )}
+            <span className="god-stack">
+              {showYinGan && <span className="yingan">{info.yinGan}</span>}
+              <span className="god">
+                {info.god?.slice(1)}
+                {info.earthGod && (
+                  <i className="egod">{info.earthGod.slice(1)}</i>
+                )}
+              </span>
             </span>
             <span className="star">
               {info.stars.map((s) => s.slice(1)).join('')}
@@ -307,10 +313,13 @@ function PalaceCell({
     >
       {watermark}
       <div className="row god-row">
-        {/* 八神取次字:符蛇陰合虎武地天;鳴法地盤神小字相隨 */}
-        <span className="god">
-          {info.god?.slice(1)}
-          {info.earthGod && <i className="egod">{info.earthGod.slice(1)}</i>}
+        {/* 八神取次字:符蛇陰合虎武地天;鳴法地盤神小字相隨;隱干居神之上 */}
+        <span className="god-stack">
+          {showYinGan && <span className="yingan">{info.yinGan}</span>}
+          <span className="god">
+            {info.god?.slice(1)}
+            {info.earthGod && <i className="egod">{info.earthGod.slice(1)}</i>}
+          </span>
         </span>
         <span className="marks">
           {ana.geju.map((g, i) => (
